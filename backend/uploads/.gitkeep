@@ -1,0 +1,19 @@
+﻿export function list(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+export function sanitizeStudent(student = {}) {
+  const { passwordHash, ...safe } = student;
+  return safe;
+}
+
+export function node(record, key) {
+  return record.get(key).properties;
+}
+
+export function integer(value) {
+  if (value?.toNumber) return value.toNumber();
+  return Number(value || 0);
+}
+
