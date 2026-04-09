@@ -23,7 +23,8 @@ const port = process.env.PORT || 5000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadDir = path.join(__dirname, "..", "uploads");
 const upload = multer({ dest: uploadDir, limits: { fileSize: 2 * 1024 * 1024 } });
-const io = new SocketServer(server, { cors: { origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true } });
+const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(",") : ["http://localhost:5173", "http://localhost:5174"];
+const io = new SocketServer(server, { cors: { origin: allowedOrigins, credentials: true } });
 
 const projectMessageSchema = new mongoose.Schema({
   projectId: { type: String, index: true, required: true },
@@ -74,7 +75,7 @@ const chatKeySource = process.env.CHAT_ENCRYPTION_KEY || process.env.JWT_SECRET 
 const chatEncryptionKey = createHash("sha256").update(chatKeySource).digest();
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use("/uploads", express.static(uploadDir));
 

@@ -44,9 +44,9 @@ export default function Dashboard() {
     <section className="mx-auto max-w-7xl px-4 py-10">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <span className="tag">Live student workspace</span>
+          <span className="tag">Your student hub</span>
           <h1 className="mt-3 font-display text-4xl font-bold">Welcome back, {user?.name?.split(" ")[0] || "Student"}</h1>
-          <p className="mt-2 text-slate-600 dark:text-slate-300">Your dashboard updates from Neo4j: profile quality, requests, recommendations, and project matches.</p>
+          <p className="mt-2 text-slate-600 dark:text-slate-300">Your personalized dashboard shows connection requests, recommendations, project opportunities, and campus updates.</p>
         </div>
       </div>
 
@@ -67,7 +67,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-2xl font-bold">Recommended collaborators</h2>
-              <p className="mt-1 text-sm text-slate-500">Each card explains why the graph recommended this student.</p>
+              <p className="mt-1 text-sm text-slate-500">Students who match your skills, interests, and academic goals.</p>
             </div>
             <CheckCircle2 className="text-emerald-500" />
           </div>
@@ -81,7 +81,7 @@ export default function Dashboard() {
           <div className="card">
             <h2 className="font-display text-2xl font-bold">Project matches</h2>
             <div className="mt-4 space-y-3">
-              {data.projects.length === 0 && <p className="rounded-3xl bg-slate-100 p-5 text-sm text-slate-500 dark:bg-white/10">No project match yet. Create projects with required skills to see suggestions here.</p>}
+              {data.projects.length === 0 && <p className="rounded-3xl bg-slate-100 p-5 text-sm text-slate-500 dark:bg-white/10">No project matches yet. Join or create projects to find collaborators with complementary skills.</p>}
               {data.projects.map((project) => <div key={project.id} className="rounded-3xl border border-slate-200 p-4 dark:border-white/10"><FolderKanban className="text-blue-600" /><p className="mt-2 font-semibold">{project.title}</p><p className="text-xs text-slate-500">Matches: {(project.matchingSkills || []).join(", ") || "Skill overlap"}</p></div>)}
             </div>
           </div>

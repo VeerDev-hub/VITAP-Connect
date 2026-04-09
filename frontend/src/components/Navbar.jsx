@@ -1,5 +1,6 @@
 ﻿import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Moon, Sun } from "lucide-react";
+import { Menu, Moon, Sun, X } from "lucide-react";
+import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
 const links = [
@@ -21,6 +22,7 @@ function NavItem({ to, children }) {
 export default function Navbar({ darkMode, setDarkMode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/70 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/70">
@@ -33,6 +35,9 @@ export default function Navbar({ darkMode, setDarkMode }) {
           {user?.role === "admin" && <NavItem to="/admin">Admin</NavItem>}
         </div>
         <div className="flex items-center gap-2">
+          <button className="btn-secondary !p-3 lg:hidden" onClick={() => setMobileMenuOpen((value) => !value)} aria-label="Toggle navigation menu">
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
           <button className="btn-secondary !p-3" onClick={() => setDarkMode((value) => !value)} aria-label="Toggle dark mode">
             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -46,6 +51,22 @@ export default function Navbar({ darkMode, setDarkMode }) {
           )}
         </div>
       </nav>
+      {user && mobileMenuOpen && (
+        <div className="lg:hidden border-t border-slate-200 bg-white/90 px-4 py-4 shadow-sm dark:border-white/10 dark:bg-slate-950/90">
+          <div className="flex flex-col gap-2">
+            {links.map(([label, href]) => (
+              <NavLink key={href} to={href} className={({ isActive }) => `rounded-full px-4 py-3 text-sm font-semibold ${isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"}`} onClick={() => setMobileMenuOpen(false)}>
+                {label}
+              </NavLink>
+            ))}
+            {user?.role === "admin" && (
+              <NavLink to="/admin" className={({ isActive }) => `rounded-full px-4 py-3 text-sm font-semibold ${isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"}`} onClick={() => setMobileMenuOpen(false)}>
+                Admin
+              </NavLink>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

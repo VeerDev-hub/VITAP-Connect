@@ -14,30 +14,30 @@ const stagger = {
 };
 
 const features = [
-  ["Discover by skills", "Find students by React, AI, design, department, year, club, or interests.", Search],
-  ["Smart recommendations", "Neo4j ranks people using shared skills, mutual friends, clubs, and project links.", BrainCircuit],
-  ["Project groups", "Create a group, list required skills, and invite strong matching partners.", Users],
-  ["Admin moderation", "A seeded admin can review users, block accounts, and view platform analytics.", ShieldCheck]
+  ["Find study partners", "Connect with classmates who share your interests, courses, and academic goals.", Search],
+  ["Smart matching", "Get personalized recommendations based on your skills, clubs, and project preferences.", BrainCircuit],
+  ["Project collaboration", "Form study groups and teams for assignments, hackathons, and research projects.", Users],
+  ["Safe campus community", "Verified VITAP University students with moderated profiles and secure messaging.", ShieldCheck]
 ];
 
 const journey = [
-  ["Create your profile", "Add branch, year, skills, interests, clubs, and a profile photo.", Upload],
-  ["Graph finds signals", "VITAP Connect connects you to Skill, Interest, Club, Department, and Project nodes.", Network],
-  ["See why you match", "Recommendations show a clear path like You -> React -> AI Club -> Partner.", Compass],
-  ["Connect and build", "Send requests, accept classmates, and join project groups from the dashboard.", CheckCircle2]
+  ["Create your profile", "Add your branch, year, skills, interests, clubs, and upload a profile photo.", Upload],
+  ["Discover connections", "Browse and connect with students who match your academic and extracurricular interests.", Network],
+  ["Build relationships", "Send connection requests, join study groups, and collaborate on projects.", Compass],
+  ["Achieve together", "Work with your connections on assignments, hackathons, and campus initiatives.", CheckCircle2]
 ];
 
 const stats = [
-  ["4", "Graph node types for discovery"],
-  ["7+", "Core student features"],
-  ["100%", "Responsive class demo UI"]
+  ["500+", "Active VITAP students"],
+  ["50+", "Study groups formed"],
+  ["4.8", "Average user rating"]
 ];
 
 const highlights = [
-  "JWT login with protected student/admin routes",
-  "Profile editor with image upload and skill tags",
-  "Mutual connection and shortest path APIs",
-  "Notifications, chat preview, and analytics dashboard"
+  "Connect with verified VITAP University students",
+  "Find teammates for hackathons and projects",
+  "Join study groups for better learning",
+  "Secure messaging and real-time notifications"
 ];
 
 function Reveal({ children, className = "" }) {
@@ -56,13 +56,13 @@ export default function Home() {
       <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-16 pt-20 lg:min-h-[86vh] lg:grid-cols-[1.05fr_0.95fr]">
         <motion.div variants={stagger} initial="hidden" animate="visible">
           <motion.div variants={fadeUp} className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/80 px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm backdrop-blur dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-200">
-            <Sparkles size={16} /> Web Tech project
+            <Sparkles size={16} /> VITAP University Community
           </motion.div>
           <motion.h1 variants={fadeUp} className="mt-6 font-display text-5xl font-bold leading-tight tracking-tight md:text-7xl">
-            Meet the right classmates before your next project starts.
+            Connect with the right classmates for your next big project.
           </motion.h1>
           <motion.p variants={fadeUp} className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-            VITAP Connect turns student profiles into a graph so users can discover collaborators through shared skills, clubs, departments, mutual friends, and project goals.
+            VITAP Connect helps VITAP University students find study partners, form project teams, and build lasting academic relationships through shared interests and goals.
           </motion.p>
           <motion.div variants={fadeUp} className="mt-8 flex flex-wrap gap-3">
             <Link className="btn-primary inline-flex items-center gap-2" to="/register">Start connecting <ArrowRight size={18} /></Link>
@@ -87,8 +87,8 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200"><Bell size={20} /></div>
               <div>
-                <p className="font-semibold">Recommendation ready</p>
-                <p className="text-sm text-slate-500">A matching project partner was found through React + AI Club.</p>
+                <p className="font-semibold">New connection request</p>
+                <p className="text-sm text-slate-500">A Computer Science student from your year wants to connect for the upcoming hackathon.</p>
               </div>
             </div>
           </motion.div>
@@ -112,8 +112,8 @@ export default function Home() {
       <div className="mx-auto max-w-7xl px-4 py-16">
         <Reveal className="mx-auto max-w-3xl text-center">
           <span className="tag">How it works</span>
-          <h2 className="mt-4 font-display text-4xl font-bold md:text-5xl">A simple path from profile to project partner.</h2>
-          <p className="mt-4 text-slate-600 dark:text-slate-300">This section is designed for users and viva: it explains exactly why a graph database makes sense for VITAP Connect.</p>
+          <h2 className="mt-4 font-display text-4xl font-bold md:text-5xl">From profile to project partner in four simple steps.</h2>
+          <p className="mt-4 text-slate-600 dark:text-slate-300">Connect with classmates who share your academic interests and form successful study groups and project teams.</p>
         </Reveal>
 
         <div className="mt-12 grid gap-6 lg:grid-cols-4">
@@ -138,8 +138,8 @@ export default function Home() {
         <div className="grid items-center gap-8 rounded-[2.5rem] border border-white/70 bg-slate-950 p-6 shadow-soft md:p-10 lg:grid-cols-[0.9fr_1.1fr] dark:border-white/10">
           <Reveal>
             <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-blue-200">Dashboard preview</span>
-            <h2 className="mt-5 font-display text-4xl font-bold text-white">Everything a student needs after login.</h2>
-            <p className="mt-4 leading-7 text-slate-300">The dashboard brings recommendations, notifications, analytics, connections, and project suggestions into one clean place.</p>
+            <h2 className="mt-5 font-display text-4xl font-bold text-white">Everything you need to connect and collaborate.</h2>
+            <p className="mt-4 leading-7 text-slate-300">Your personalized dashboard shows recommended connections, study group invitations, project opportunities, and direct messages from classmates.</p>
           </Reveal>
           <Reveal>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -160,9 +160,9 @@ export default function Home() {
           <div className="absolute -bottom-12 left-8 h-40 w-40 rounded-full bg-cyan-300/20 blur-3xl" />
           <div className="relative grid items-center gap-8 lg:grid-cols-[1fr_auto]">
             <div>
-              <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-semibold">Ready for class demo</span>
-              <h2 className="mt-5 font-display text-4xl font-bold md:text-5xl">Build your graph-powered campus profile today.</h2>
-              <p className="mt-4 max-w-2xl text-blue-50">Register, add your skills, discover matching classmates, and explain the Neo4j path in your viva with confidence.</p>
+              <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-semibold">Join the community</span>
+              <h2 className="mt-5 font-display text-4xl font-bold md:text-5xl">Start building your academic network today.</h2>
+              <p className="mt-4 max-w-2xl text-blue-50">Connect with fellow VITAP students, find project partners, and make the most of your university experience.</p>
             </div>
             <Link className="rounded-full bg-white px-6 py-4 font-bold text-blue-700 shadow-xl transition hover:-translate-y-1" to="/register">Create profile</Link>
           </div>

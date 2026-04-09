@@ -1,5 +1,5 @@
 ﻿import { Link } from "react-router-dom";
-import { Github, GraduationCap, Network } from "lucide-react";
+import { Github, GraduationCap, Network, Linkedin } from "lucide-react";
 
 const links = [
   ["Dashboard", "/dashboard"],
@@ -17,12 +17,17 @@ export default function Footer() {
             VITAP<span className="text-blue-600">Connect</span>
           </Link>
           <p className="mt-4 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-300">
-            A React, Express, and Neo4j AuraDB project that helps students discover classmates through skills, clubs, mutual connections, and project goals.
+            VITAP Connect is a student collaboration platform that helps VITAP University students find teammates, build study groups, and work together on academic projects and hackathons.
           </p>
           <div className="mt-5 flex gap-3 text-slate-500 dark:text-slate-300">
+            <a href="https://github.com/VeerDev-hub" className="rounded-2xl border border-slate-200 p-3 transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5" target="_blank" rel="noopener noreferrer">
+              <Github size={18} />
+            </a>
+            <a href="https://www.linkedin.com/in/veer-pratap-singh-99a368310/" className="rounded-2xl border border-slate-200 p-3 transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5" target="_blank" rel="noopener noreferrer">
+              <Linkedin size={18} />
+            </a>
             <div className="rounded-2xl border border-slate-200 p-3 dark:border-white/10"><Network size={18} /></div>
             <div className="rounded-2xl border border-slate-200 p-3 dark:border-white/10"><GraduationCap size={18} /></div>
-            <div className="rounded-2xl border border-slate-200 p-3 dark:border-white/10"><Github size={18} /></div>
           </div>
         </div>
 
@@ -34,17 +39,17 @@ export default function Footer() {
         </div>
 
         <div>
-          <h3 className="font-display text-lg font-bold">Viva points</h3>
+          <h3 className="font-display text-lg font-bold">Features</h3>
           <div className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
-            <p>Graph database: shortest paths and recommendations.</p>
-            <p>Security: JWT, bcrypt, helmet, admin roles.</p>
-            <p>Deployment: Vercel + Render + Neo4j AuraDB.</p>
+            <p>Find students by skills and interests</p>
+            <p>Create and join project teams</p>
+            <p>Real-time chat and video calls</p>
           </div>
         </div>
       </div>
       <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-3 border-t border-slate-200 px-4 pt-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
-        <p>VITAP Connect - Built for Web Technology class project.</p>
-        <p>React + Express + Neo4j AuraDB</p>
+        <p>Made with ❤️ by Veer</p>
+        <p>© 2026 VITAP Connect - Student Collaboration Platform</p>
       </div>
     </footer>
   );
