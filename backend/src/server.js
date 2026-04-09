@@ -470,7 +470,7 @@ app.post("/auth/register", authLimiter, async (req, res, next) => {
     await saveProfileRelationships(user.id, skills, interests, user.department, req.body.club || "");
     const created = await getStudentById(user.id);
     const token = sign(created);
-    res.cookie("jwt", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 24 * 60 * 60 * 1000 });
+    res.cookie("jwt", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 24 * 60 * 60 * 1000 });
     res.status(201).json({ user: created });
   } catch (error) {
     next(error);
@@ -487,7 +487,7 @@ app.post("/auth/login", authLimiter, async (req, res, next) => {
     if (user.status === "blocked") return res.status(403).json({ message: "Account blocked by admin" });
     const safe = await getStudentById(user.id);
     const token = sign(safe);
-    res.cookie("jwt", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 24 * 60 * 60 * 1000 });
+    res.cookie("jwt", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 24 * 60 * 60 * 1000 });
     res.json({ user: safe });
   } catch (error) {
     next(error);
@@ -495,7 +495,7 @@ app.post("/auth/login", authLimiter, async (req, res, next) => {
 });
 
 app.post("/auth/logout", (req, res) => {
-  res.clearCookie("jwt", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict" });
+  res.clearCookie("jwt", { httpOnly: true, secure: true, sameSite: "none" });
   res.json({ message: "Logged out successfully" });
 });
 
