@@ -5,6 +5,9 @@ export function list(value) {
 
 export function sanitizeStudent(student = {}) {
   const { passwordHash, ...safe } = student;
+  if (safe.avatarUrl && safe.avatarUrl.includes("localhost:5000") && process.env.API_BASE_URL) {
+    safe.avatarUrl = safe.avatarUrl.replace(/http:\/\/localhost:5000/g, process.env.API_BASE_URL);
+  }
   return safe;
 }
 

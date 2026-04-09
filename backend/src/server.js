@@ -324,10 +324,10 @@ function callDurationSeconds(call) {
   return Math.max(0, Math.round((new Date(call.endedAt).getTime() - new Date(call.acceptedAt).getTime()) / 1000));
 }
 
-function buildIceServers() {
+async function buildIceServers() {
   const stunUrls = String(process.env.STUN_URLS || "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302")
     .split(",")
-    .map((value) => value.trim())
+    .map((v) => v.trim())
     .filter(Boolean);
   const iceServers = [];
 
@@ -335,11 +335,19 @@ function buildIceServers() {
     iceServers.push({ urls: stunUrls });
   }
 
-  const turnUrls = String(process.env.TURN_URLS || process.env.TURN_URL || "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const turnUrlsStr = String(process.env.METERED_TURN_API || process.env.TURN_URLS || process.env.TURN_URL || "");
+  if (turnUrlsStr.startsWith("http")) {
+    try {
+      const response = await fetch(turnUrlsStr);
+      const data = await response.json();
+      if (Array.isArray(data)) return data; 
+      if (data.iceServers) return data.iceServers;
+    } catch (error) {
+      console.error("Failed to fetch TURN credentials from API:", error.message);
+    }
+  }
 
+  const turnUrls = turnUrlsStr.split(",").map((v) => v.trim()).filter(Boolean);
   if (turnUrls.length && process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL) {
     iceServers.push({
       urls: turnUrls,
@@ -366,8 +374,13 @@ async function saveProfileRelationships(userId, skills, interests, department, c
 
 app.get("/health", (req, res) => res.json({ status: "ok", service: "vitap-connect-api" }));
 
-app.get("/config/call", requireAuth, (req, res) => {
-  res.json({ iceServers: buildIceServers() });
+app.get("/config/call", requireAuth, async (req, res, next) => {
+  try {
+    const iceServers = await buildIceServers();
+    res.json({ iceServers });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get("/calls/history", requireAuth, async (req, res, next) => {
@@ -607,7 +620,8 @@ app.patch("/users/me", requireAuth, async (req, res, next) => {
 
 app.post("/users/me/avatar", requireAuth, upload.single("avatar"), async (req, res, next) => {
   try {
-    const avatarUrl = `${process.env.API_BASE_URL || `http://localhost:${port}`}/uploads/${req.file.filename}`;
+    const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const avatarUrl = `${baseUrl}/uploads/${req.file.filename}`;
     await runQuery("MATCH (s:Student {id: $id}) SET s.avatarUrl = $avatarUrl", { id: req.user.id, avatarUrl });
     res.json({ user: await getStudentById(req.user.id) });
   } catch (error) {
