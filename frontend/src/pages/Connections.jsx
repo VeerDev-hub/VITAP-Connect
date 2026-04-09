@@ -71,8 +71,8 @@ export default function Connections() {
           <p className="mt-2 text-slate-600 dark:text-slate-300">Accept useful collaborators, reject requests you do not need, and keep your campus network focused.</p>
         </div>
         <div className="grid grid-cols-2 gap-3 text-center">
-          <div className="rounded-3xl bg-blue-50 px-5 py-4 dark:bg-blue-500/10"><UserMinus className="mx-auto text-blue-600" /><b className="mt-2 block">{connections.requests.length}</b><span className="text-xs text-slate-500">Pending</span></div>
-          <div className="rounded-3xl bg-emerald-50 px-5 py-4 dark:bg-emerald-500/10"><UserCheck className="mx-auto text-emerald-600" /><b className="mt-2 block">{connections.accepted.length}</b><span className="text-xs text-slate-500">Friends</span></div>
+          <div className="rounded-3xl bg-slate-100 px-5 py-4 dark:bg-slate-800"><UserMinus className="mx-auto text-slate-900 dark:text-slate-100" /><b className="mt-2 block">{connections.requests.length}</b><span className="text-xs text-slate-500 dark:text-slate-400">Pending</span></div>
+          <div className="rounded-3xl bg-emerald-50 px-5 py-4 dark:bg-emerald-500/10"><UserCheck className="mx-auto text-emerald-600" /><b className="mt-2 block">{connections.accepted.length}</b><span className="text-xs text-slate-500 dark:text-slate-400">Friends</span></div>
         </div>
       </div>
 

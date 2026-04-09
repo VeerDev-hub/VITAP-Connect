@@ -51,11 +51,11 @@ export default function Dashboard() {
       </div>
 
       <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-        <div className="card bg-gradient-to-br from-blue-600 to-violet-600 text-white">
+        <div className="card bg-slate-900 text-white">
           <Sparkles />
-          <p className="mt-4 text-sm font-semibold text-blue-100">Profile completeness</p>
+          <p className="mt-4 text-sm font-semibold text-slate-300">Profile completeness</p>
           <p className="mt-2 font-display text-4xl font-bold">{completion}%</p>
-          <div className="mt-4 h-2 rounded-full bg-white/20"><div className="h-2 rounded-full bg-white" style={{ width: `${completion}%` }} /></div>
+          <div className="mt-4 h-2 rounded-full bg-white/10"><div className="h-2 rounded-full bg-white" style={{ width: `${completion}%` }} /></div>
         </div>
         <div className="card"><Users className="text-blue-600" /><p className="mt-4 text-sm text-slate-500">Campus students</p><p className="font-display text-4xl font-bold">{data.analytics?.students || 0}</p></div>
         <div className="card"><UserCheck className="text-emerald-600" /><p className="mt-4 text-sm text-slate-500">Your friends</p><p className="font-display text-4xl font-bold">{data.connections.accepted.length}</p></div>
@@ -82,13 +82,13 @@ export default function Dashboard() {
             <h2 className="font-display text-2xl font-bold">Project matches</h2>
             <div className="mt-4 space-y-3">
               {data.projects.length === 0 && <p className="rounded-3xl bg-slate-100 p-5 text-sm text-slate-500 dark:bg-white/10">No project matches yet. Join or create projects to find collaborators with complementary skills.</p>}
-              {data.projects.map((project) => <div key={project.id} className="rounded-3xl border border-slate-200 p-4 dark:border-white/10"><FolderKanban className="text-blue-600" /><p className="mt-2 font-semibold">{project.title}</p><p className="text-xs text-slate-500">Matches: {(project.matchingSkills || []).join(", ") || "Skill overlap"}</p></div>)}
+              {data.projects.map((project) => <div key={project.id} className="rounded-3xl border border-slate-200 p-4 dark:border-slate-700"><FolderKanban className="text-slate-900 dark:text-slate-100" /><p className="mt-2 font-semibold">{project.title}</p><p className="text-xs text-slate-500 dark:text-slate-400">Matches: {(project.matchingSkills || []).join(", ") || "Skill overlap"}</p></div>)}
             </div>
           </div>
           <div className="card">
             <h2 className="font-display text-2xl font-bold">Notifications</h2>
             <div className="mt-4 space-y-3">
-              {data.notifications.map((item) => <p key={item.id} className="rounded-2xl bg-blue-50 p-3 text-sm dark:bg-blue-500/15">{item.message}</p>)}
+              {data.notifications.map((item) => <p key={item.id} className="rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800">{item.message}</p>)}
             </div>
           </div>
         </div>

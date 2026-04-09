@@ -41,7 +41,7 @@ export default function Profile() {
           <input className="input mt-4" type="file" accept="image/*" onChange={(event) => setAvatar(event.target.files[0])} />
           <button className="btn-secondary mt-3 w-full" type="button" onClick={uploadAvatar}>Upload image</button>
           {user.avatarUrl && <button className="mt-3 w-full rounded-full border border-rose-200 bg-rose-50 px-5 py-3 font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200" type="button" onClick={removeAvatar}>Remove avatar</button>}
-          <p className="mt-4 rounded-3xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">Complete profiles help you find better study partners and project collaborators.</p>
+          <p className="mt-4 rounded-3xl bg-slate-100 p-4 text-sm text-slate-900 dark:bg-slate-800 dark:text-slate-100">Complete profiles help you find better study partners and project collaborators.</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <input className="input" placeholder="Name" {...register("name")} />

@@ -121,11 +121,11 @@ export default function IncomingCallModal() {
       {incomingCall && (
         <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-[2rem] border border-white/70 bg-white/95 p-5 shadow-2xl backdrop-blur dark:border-white/10 dark:bg-slate-900/95">
           <div className="flex items-start gap-4">
-            <div className="mt-1 rounded-2xl bg-blue-100 p-3 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">
+            <div className="mt-1 rounded-2xl bg-slate-100 p-3 text-slate-900 dark:bg-slate-800 dark:text-slate-100">
               {incomingCall.callType === "video" ? <Video size={20} /> : <Phone size={20} />}
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">Incoming {incomingCall.callType} call</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-900 dark:text-slate-100">Incoming {incomingCall.callType} call</p>
               <h3 className="mt-2 font-display text-2xl font-bold">{incomingCall.title || `${incomingCall.fromUserName} is calling`}</h3>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-300">{incomingCall.fromUserName} wants to start a private {incomingCall.callType} call with you.</p>
             </div>

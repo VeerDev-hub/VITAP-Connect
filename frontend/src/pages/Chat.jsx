@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BellDot, Check, CheckCheck, Clock3, MessageSquare, Phone, Send, SmilePlus, Users, Video } from "lucide-react";
+import { BellDot, Check, CheckCheck, Clock3, MessageSquare, Phone, Send, SmilePlus, Users, Video, MoreVertical, Menu, ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../services/api";
 import { getSocket } from "../services/socket";
@@ -10,12 +10,18 @@ const emojiList = ["😀", "😂", "😍", "🔥", "👍", "👏", "🎉", "🚀
 
 function formatTimestamp(value) {
   if (!value) return "";
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
+  const date = new Date(value);
+  const now = new Date();
+  const diff = now - date;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m`;
+  if (hours < 24) return `${hours}h`;
+  if (days < 7) return `${days}d`;
+  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
 function formatDuration(seconds) {
@@ -39,12 +45,12 @@ function StatusIcon({ message, otherUserId }) {
   const readBy = message.readBy || [];
   const deliveredTo = message.deliveredTo || [];
   if (readBy.includes(otherUserId)) {
-    return <CheckCheck size={14} className="text-sky-200" />;
+    return <CheckCheck size={14} className="text-blue-400" />;
   }
   if (deliveredTo.includes(otherUserId)) {
-    return <CheckCheck size={14} className="text-blue-100" />;
+    return <CheckCheck size={14} className="text-slate-400" />;
   }
-  return <Check size={14} className="text-blue-100" />;
+  return <Check size={14} className="text-slate-400" />;
 }
 
 export default function Chat() {
@@ -52,6 +58,7 @@ export default function Chat() {
   const navigate = useNavigate();
   const socket = useMemo(() => getSocket(), []);
   const typingTimeoutRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const messageEndRef = useRef(null);
   const [mode, setMode] = useState("direct");
   const [conversations, setConversations] = useState([]);
@@ -63,6 +70,8 @@ export default function Chat() {
   const [typingLabel, setTypingLabel] = useState("");
   const [onlineUserIds, setOnlineUserIds] = useState([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const activeItem = activeChat?.type === "project"
     ? rooms.find((room) => room.id === activeChat.id)
@@ -250,8 +259,18 @@ export default function Chat() {
   }, [activeChat, socket]);
 
   useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, typingLabel]);
+    if (shouldAutoScroll && messageEndRef.current) {
+      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, typingLabel, shouldAutoScroll]);
+
+  const handleScroll = () => {
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100; // 100px threshold
+      setShouldAutoScroll(isNearBottom);
+    }
+  };
 
   function emitTyping(nextText) {
     const isDirect = activeChat?.type === "direct";
@@ -318,161 +337,574 @@ export default function Chat() {
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <span className="tag">Encrypted realtime collaboration</span>
-          <h1 className="mt-3 font-display text-4xl font-bold">Messages</h1>
-          <p className="mt-2 text-slate-600 dark:text-slate-300">Private chats are stored encrypted, with live presence, typing indicators, emoji replies, delivery status, and private calling.</p>
-        </div>
-        <div className="inline-flex rounded-full bg-slate-100 p-1 dark:bg-white/10">
-          <button type="button" className={`rounded-full px-4 py-2 text-sm font-semibold ${mode === "direct" ? "bg-white text-slate-900 shadow" : "text-slate-500 dark:text-slate-300"}`} onClick={() => setMode("direct")}>Private</button>
-          <button type="button" className={`rounded-full px-4 py-2 text-sm font-semibold ${mode === "project" ? "bg-white text-slate-900 shadow" : "text-slate-500 dark:text-slate-300"}`} onClick={() => setMode("project")}>Projects</button>
-        </div>
-      </div>
-
-      <div className="mt-8 grid gap-6 lg:grid-cols-[0.38fr_1fr]">
-        <aside className="card">
-          <div className="flex items-center gap-2">
-            {mode === "direct" ? <BellDot className="text-blue-600" /> : <Users className="text-blue-600" />}
-            <h2 className="font-display text-2xl font-bold">{mode === "direct" ? "Friend chats" : "Your rooms"}</h2>
-          </div>
-          <div className="mt-5 space-y-3">
-            {mode === "direct" && conversations.length === 0 && <p className="text-sm text-slate-500">Accept a friend connection to unlock private chat.</p>}
-            {mode === "project" && rooms.length === 0 && <p className="text-sm text-slate-500">Join a project or hackathon to unlock room chat.</p>}
-
-            {mode === "direct" && conversations.map((conversation) => {
-              const active = activeChat?.type === "direct" && activeChat.id === conversation.id;
-              const unreadCount = conversation.unreadCount || 0;
-              return (
-                <button type="button" key={conversation.id} className={`w-full rounded-3xl px-4 py-4 text-left transition ${active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-white/10 dark:text-white"}`} onClick={() => setActiveChat({ type: "direct", id: conversation.id })}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold">{conversation.name}</p>
-                        <span className={`h-2.5 w-2.5 rounded-full ${onlineUserIds.includes(conversation.id) ? "bg-emerald-400" : active ? "bg-blue-200" : "bg-slate-300"}`} />
-                      </div>
-                      <p className={`mt-1 text-xs ${active ? "text-blue-100" : "text-slate-500"}`}>{conversation.lastMessage || "Start a conversation"}</p>
-                    </div>
-                    <div className="text-right">
-                      {conversation.lastMessageAt && <p className={`text-[11px] ${active ? "text-blue-100" : "text-slate-500"}`}>{formatTimestamp(conversation.lastMessageAt)}</p>}
-                      {unreadCount > 0 && <span className={`mt-2 inline-flex min-w-6 items-center justify-center rounded-full px-2 py-1 text-[11px] font-bold ${active ? "bg-white/20 text-white" : "bg-blue-600 text-white"}`}>{unreadCount}</span>}
-                    </div>
-                  </div>
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black bg-opacity-50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        >
+          <div
+            className="w-80 h-full bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile Sidebar Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+              <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Chats</h1>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={`p-2 rounded-lg ${mode === "direct" ? "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white" : "text-slate-500"}`}
+                  onClick={() => setMode("direct")}
+                >
+                  <MessageSquare size={20} />
                 </button>
-              );
-            })}
-
-            {mode === "project" && rooms.map((room) => {
-              const active = activeChat?.type === "project" && activeChat.id === room.id;
-              return (
-                <button type="button" key={room.id} className={`w-full rounded-3xl px-4 py-4 text-left transition ${active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-white/10 dark:text-white"}`} onClick={() => setActiveChat({ type: "project", id: room.id })}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold">{room.title}</p>
-                      <p className={`mt-1 text-xs ${active ? "text-blue-100" : "text-slate-500"}`}>{room.type || "Project"}</p>
-                    </div>
-                    {(room.unreadCount || 0) > 0 && <span className={`inline-flex min-w-6 items-center justify-center rounded-full px-2 py-1 text-[11px] font-bold ${active ? "bg-white/20 text-white" : "bg-blue-600 text-white"}`}>{room.unreadCount}</span>}
-                  </div>
+                <button
+                  type="button"
+                  className={`p-2 rounded-lg ${mode === "project" ? "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white" : "text-slate-500"}`}
+                  onClick={() => setMode("project")}
+                >
+                  <Users size={20} />
                 </button>
-              );
-            })}
-          </div>
-
-          {mode === "direct" && (
-            <div className="mt-8 border-t border-slate-200 pt-5 dark:border-white/10">
-              <div className="flex items-center gap-2">
-                <Clock3 size={18} className="text-violet-600" />
-                <h3 className="font-semibold">Recent calls</h3>
-              </div>
-              <div className="mt-4 space-y-3">
-                {callHistory.slice(0, 4).map((call) => (
-                  <div key={call._id || `${call.roomId}-${call.startedAt}`} className="rounded-3xl bg-slate-100 px-4 py-3 text-sm dark:bg-white/10">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-semibold">{call.counterpartName}</p>
-                      <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${call.status === "missed" ? "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-200" : call.status === "completed" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200" : "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200"}`}>{call.status}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">{call.direction} {call.callType} call · {formatTimestamp(call.startedAt)}</p>
-                    <p className="mt-1 text-xs text-slate-500">Duration: {formatDuration(call.durationSeconds || 0)}</p>
-                  </div>
-                ))}
-                {callHistory.length === 0 && <p className="text-sm text-slate-500">No call history yet.</p>}
               </div>
             </div>
-          )}
-        </aside>
 
-        <div className="card flex min-h-[38rem] flex-col">
-          {activeItem ? (
-            <>
-              <div className="border-b border-slate-200 pb-4 dark:border-white/10">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="text-blue-600" />
-                      <h2 className="font-display text-2xl font-bold">{activeItem.title || activeItem.name}</h2>
-                    </div>
-                    <p className="mt-2 text-sm text-slate-500">
-                      {activeChat?.type === "direct"
-                        ? (onlineUserIds.includes(activeItem.id) ? "Online now" : "Offline right now")
-                        : `${activeItem.type || "Project"} room chat with accepted members only.`}
-                    </p>
-                  </div>
-                  {activeChat?.type === "direct" && (
-                    <div className="flex gap-2">
-                      <button type="button" className="btn-secondary !px-4 !py-3" onClick={() => startPrivateCall("voice")}><Phone size={18} /></button>
-                      <button type="button" className="btn-secondary !px-4 !py-3" onClick={() => startPrivateCall("video")}><Video size={18} /></button>
-                    </div>
-                  )}
+            <div className="flex-1 overflow-y-auto">
+              {mode === "direct" && conversations.length === 0 && (
+                <div className="p-4 text-center text-slate-500">
+                  <MessageSquare size={48} className="mx-auto mb-2 opacity-50" />
+                  <p>No conversations yet</p>
+                  <p className="text-sm">Connect with friends to start chatting</p>
                 </div>
-              </div>
-
-              <div className="mt-5 flex-1 space-y-3 overflow-y-auto pr-1">
-                {messages.length === 0 && <p className="text-sm text-slate-500">No messages yet. Start the discussion.</p>}
-                {messages.map((message, index) => {
-                  const mine = message.senderId === user.id;
-                  return (
-                    <div key={`${message.createdAt}-${index}`} className={`max-w-[80%] rounded-3xl px-4 py-3 text-sm ${mine ? "ml-auto bg-blue-600 text-white" : "bg-slate-100 text-slate-800 dark:bg-white/10 dark:text-white"}`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className={`text-xs font-semibold ${mine ? "text-blue-100" : "text-slate-500"}`}>{mine ? "You" : message.senderName}</p>
-                        <p className={`text-[11px] ${mine ? "text-blue-100" : "text-slate-400"}`}>{formatTimestamp(message.createdAt)}</p>
-                      </div>
-                      <p className="mt-1 whitespace-pre-wrap">{message.text}</p>
-                      {mine && activeChat?.type === "direct" && (
-                        <div className="mt-2 flex justify-end">
-                          <StatusIcon message={message} otherUserId={activeChat.id} />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {typingLabel && <p className="text-sm text-slate-500">{typingLabel}</p>}
-                <div ref={messageEndRef} />
-              </div>
-
-              {showEmojiPicker && (
-                <div className="mt-4 flex flex-wrap gap-2 rounded-3xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-slate-950/60">
-                  {emojiList.map((emoji) => (
-                    <button type="button" key={emoji} className="rounded-2xl bg-white px-3 py-2 text-xl shadow-sm transition hover:-translate-y-0.5 dark:bg-white/10" onClick={() => addEmoji(emoji)}>
-                      {emoji}
-                    </button>
-                  ))}
+              )}
+              {mode === "project" && rooms.length === 0 && (
+                <div className="p-4 text-center text-slate-500">
+                  <Users size={48} className="mx-auto mb-2 opacity-50" />
+                  <p>No project rooms</p>
+                  <p className="text-sm">Join a project to start collaborating</p>
                 </div>
               )}
 
-              <div className="mt-5 flex gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
-                <button type="button" className="btn-secondary !px-4" onClick={() => setShowEmojiPicker((current) => !current)}><SmilePlus size={18} /></button>
-                <input className="input" placeholder={activeChat?.type === "direct" ? `Message ${activeItem.name}` : `Message ${activeItem.title}`} value={text} onChange={handleInputChange} onKeyDown={(event) => event.key === "Enter" && sendMessage()} />
-                <button type="button" className="btn-primary inline-flex items-center gap-2" onClick={sendMessage}><Send size={16} /> Send</button>
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-1 items-center justify-center text-center text-slate-500">
-              Choose a friend or project room to start chatting.
+              {mode === "direct" && conversations.map((conversation) => {
+                const active = activeChat?.type === "direct" && activeChat.id === conversation.id;
+                const unreadCount = conversation.unreadCount || 0;
+                return (
+                  <button
+                    type="button"
+                    key={conversation.id}
+                    className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
+                    onClick={() => {
+                      setActiveChat({ type: "direct", id: conversation.id });
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
+                          <span className="text-slate-600 dark:text-slate-300 font-semibold">
+                            {conversation.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        {onlineUserIds.includes(conversation.id) && (
+                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate">
+                            {conversation.name}
+                          </p>
+                          {conversation.lastMessageAt && (
+                            <span className="text-xs text-slate-500">
+                              {formatTimestamp(conversation.lastMessageAt)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-sm text-slate-500 truncate">
+                            {conversation.lastMessage || "Start a conversation"}
+                          </p>
+                          {unreadCount > 0 && (
+                            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {mode === "project" && rooms.map((room) => {
+                const active = activeChat?.type === "project" && activeChat.id === room.id;
+                const unreadCount = room.unreadCount || 0;
+                return (
+                  <button
+                    type="button"
+                    key={room.id}
+                    className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
+                    onClick={() => {
+                      setActiveChat({ type: "project", id: room.id });
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
+                        <Users size={20} className="text-slate-600 dark:text-slate-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate">
+                            {room.title}
+                          </p>
+                          {unreadCount > 0 && (
+                            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-500 truncate">
+                          {room.type || "Project"} • {room.members?.length || 0} members
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      <div className="hidden md:flex w-80 border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Chats</h1>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={`p-2 rounded-lg ${mode === "direct" ? "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white" : "text-slate-500"}`}
+              onClick={() => setMode("direct")}
+            >
+              <MessageSquare size={20} />
+            </button>
+            <button
+              type="button"
+              className={`p-2 rounded-lg ${mode === "project" ? "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white" : "text-slate-500"}`}
+              onClick={() => setMode("project")}
+            >
+              <Users size={20} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {mode === "direct" && conversations.length === 0 && (
+            <div className="p-4 text-center text-slate-500">
+              <MessageSquare size={48} className="mx-auto mb-2 opacity-50" />
+              <p>No conversations yet</p>
+              <p className="text-sm">Connect with friends to start chatting</p>
             </div>
           )}
+          {mode === "project" && rooms.length === 0 && (
+            <div className="p-4 text-center text-slate-500">
+              <Users size={48} className="mx-auto mb-2 opacity-50" />
+              <p>No project rooms</p>
+              <p className="text-sm">Join a project to start collaborating</p>
+            </div>
+          )}
+
+          {mode === "direct" && conversations.map((conversation) => {
+            const active = activeChat?.type === "direct" && activeChat.id === conversation.id;
+            const unreadCount = conversation.unreadCount || 0;
+            return (
+              <button
+                type="button"
+                key={conversation.id}
+                className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
+                onClick={() => setActiveChat({ type: "direct", id: conversation.id })}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
+                      <span className="text-slate-600 dark:text-slate-300 font-semibold">
+                        {conversation.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    {onlineUserIds.includes(conversation.id) && (
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-slate-900 dark:text-white truncate">
+                        {conversation.name}
+                      </p>
+                      {conversation.lastMessageAt && (
+                        <span className="text-xs text-slate-500">
+                          {formatTimestamp(conversation.lastMessageAt)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-sm text-slate-500 truncate">
+                        {conversation.lastMessage || "Start a conversation"}
+                      </p>
+                      {unreadCount > 0 && (
+                        <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+
+          {mode === "project" && rooms.map((room) => {
+            const active = activeChat?.type === "project" && activeChat.id === room.id;
+            const unreadCount = room.unreadCount || 0;
+            return (
+              <button
+                type="button"
+                key={room.id}
+                className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
+                onClick={() => setActiveChat({ type: "project", id: room.id })}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
+                    <Users size={20} className="text-slate-600 dark:text-slate-300" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-slate-900 dark:text-white truncate">
+                        {room.title}
+                      </p>
+                      {unreadCount > 0 && (
+                        <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-500 truncate">
+                      {room.type || "Project"} • {room.members?.length || 0} members
+                    </p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
-    </section>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {activeItem ? (
+          <>
+            {/* Chat Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <div className="flex items-center gap-3">
+                {/* Mobile back button */}
+                <button
+                  type="button"
+                  className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <div className="w-10 h-10 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
+                  {activeChat?.type === "direct" ? (
+                    <span className="text-slate-600 dark:text-slate-300 font-semibold">
+                      {activeItem.name.charAt(0).toUpperCase()}
+                    </span>
+                  ) : (
+                    <Users size={20} className="text-slate-600 dark:text-slate-300" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-semibold text-slate-900 dark:text-white truncate">
+                    {activeItem.title || activeItem.name}
+                  </h2>
+                  <p className="text-sm text-slate-500">
+                    {activeChat?.type === "direct"
+                      ? (onlineUserIds.includes(activeItem.id) ? "online" : "offline")
+                      : `${activeItem.members?.length || 0} members`}
+                  </p>
+                </div>
+              </div>
+              {activeChat?.type === "direct" && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                    onClick={() => startPrivateCall("voice")}
+                  >
+                    <Phone size={20} />
+                  </button>
+                  <button
+                    type="button"
+                    className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                    onClick={() => startPrivateCall("video")}
+                  >
+                    <Video size={20} />
+                  </button>
+                  <button
+                    type="button"
+                    className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    <MoreVertical size={20} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Messages */}
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-2"
+              onScroll={handleScroll}
+            >
+              {messages.length === 0 && (
+                <div className="text-center text-slate-500 py-8">
+                  <MessageSquare size={48} className="mx-auto mb-2 opacity-50" />
+                  <p>No messages yet</p>
+                  <p className="text-sm">Start the conversation</p>
+                </div>
+              )}
+              {messages.map((message, index) => {
+                const mine = message.senderId === user.id;
+                const prevMessage = messages[index - 1];
+                const showAvatar = !prevMessage || prevMessage.senderId !== message.senderId;
+                const showTimestamp = !prevMessage || new Date(message.createdAt) - new Date(prevMessage.createdAt) > 300000; // 5 minutes
+
+                return (
+                  <div key={`${message.createdAt}-${index}`} className={`flex gap-2 px-2 ${mine ? "justify-end" : "justify-start"}`}>
+                    {!mine && showAvatar && (
+                      <div className="w-8 h-8 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        <span className="text-xs text-slate-600 dark:text-slate-300 font-semibold">
+                          {message.senderName.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    {!mine && !showAvatar && <div className="w-8"></div>}
+                    <div className={`max-w-[85%] sm:max-w-xs md:max-w-sm lg:max-w-md ${mine ? "order-1" : "order-2"}`}>
+                      {!mine && showAvatar && (
+                        <p className="text-xs text-slate-500 mb-1 px-3">
+                          {message.senderName}
+                        </p>
+                      )}
+                      {showTimestamp && (
+                        <p className="text-xs text-slate-400 text-center mb-2">
+                          {new Date(message.createdAt).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "numeric",
+                            minute: "2-digit"
+                          })}
+                        </p>
+                      )}
+                      <div className={`rounded-2xl px-4 py-2 ${mine ? "bg-blue-500 text-white" : "bg-white dark:bg-slate-700 text-slate-900 dark:text-white"}`}>
+                        <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                      </div>
+                      <div className={`flex items-center gap-1 mt-1 text-xs text-slate-400 ${mine ? "justify-end" : "justify-start"}`}>
+                        <span>{formatTimestamp(message.createdAt)}</span>
+                        {mine && activeChat?.type === "direct" && (
+                          <StatusIcon message={message} otherUserId={activeChat.id} />
+                        )}
+                      </div>
+                    </div>
+                    {mine && <div className="w-8"></div>}
+                  </div>
+                );
+              })}
+              {typingLabel && (
+                <div className="flex gap-2 justify-start px-2">
+                  <div className="w-8 h-8 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <span className="text-xs text-slate-600 dark:text-slate-300 font-semibold">?</span>
+                  </div>
+                  <div className="bg-white dark:bg-slate-700 rounded-2xl px-4 py-2">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messageEndRef} />
+            </div>
+
+            {/* Message Input */}
+            <div className="p-2 sm:p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              {showEmojiPicker && (
+                <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                  <div className="flex flex-wrap gap-2">
+                    {emojiList.map((emoji) => (
+                      <button
+                        type="button"
+                        key={emoji}
+                        className="w-8 h-8 hover:bg-slate-200 dark:hover:bg-slate-600 rounded"
+                        onClick={() => addEmoji(emoji)}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="p-3 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex-shrink-0"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                >
+                  <SmilePlus size={20} />
+                </button>
+                <input
+                  className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                  placeholder="Type a message..."
+                  value={text}
+                  onChange={handleInputChange}
+                  onKeyDown={(event) => event.key === "Enter" && sendMessage()}
+                />
+                <button
+                  type="button"
+                  className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full disabled:opacity-50 flex-shrink-0"
+                  onClick={sendMessage}
+                  disabled={!text.trim()}
+                >
+                  <Send size={20} />
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col">
+            {/* Mobile Chat List Header */}
+            <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Chats</h1>
+              <button
+                type="button"
+                className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Menu size={20} />
+              </button>
+            </div>
+
+            {/* Mobile Chat List */}
+            <div className="md:hidden flex-1 overflow-y-auto">
+              {mode === "direct" && conversations.length === 0 && (
+                <div className="p-4 text-center text-slate-500">
+                  <MessageSquare size={48} className="mx-auto mb-2 opacity-50" />
+                  <p>No conversations yet</p>
+                  <p className="text-sm">Connect with friends to start chatting</p>
+                </div>
+              )}
+              {mode === "project" && rooms.length === 0 && (
+                <div className="p-4 text-center text-slate-500">
+                  <Users size={48} className="mx-auto mb-2 opacity-50" />
+                  <p>No project rooms</p>
+                  <p className="text-sm">Join a project to start collaborating</p>
+                </div>
+              )}
+
+              {mode === "direct" && conversations.map((conversation) => {
+                const active = activeChat?.type === "direct" && activeChat.id === conversation.id;
+                const unreadCount = conversation.unreadCount || 0;
+                return (
+                  <button
+                    type="button"
+                    key={conversation.id}
+                    className={`w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
+                    onClick={() => setActiveChat({ type: "direct", id: conversation.id })}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
+                          <span className="text-slate-600 dark:text-slate-300 font-semibold">
+                            {conversation.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        {onlineUserIds.includes(conversation.id) && (
+                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate">
+                            {conversation.name}
+                          </p>
+                          {conversation.lastMessageAt && (
+                            <span className="text-xs text-slate-500">
+                              {formatTimestamp(conversation.lastMessageAt)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-sm text-slate-500 truncate">
+                            {conversation.lastMessage || "Start a conversation"}
+                          </p>
+                          {unreadCount > 0 && (
+                            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {mode === "project" && rooms.map((room) => {
+                const active = activeChat?.type === "project" && activeChat.id === room.id;
+                const unreadCount = room.unreadCount || 0;
+                return (
+                  <button
+                    type="button"
+                    key={room.id}
+                    className={`w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
+                    onClick={() => setActiveChat({ type: "project", id: room.id })}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
+                        <Users size={20} className="text-slate-600 dark:text-slate-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate">
+                            {room.title}
+                          </p>
+                          {unreadCount > 0 && (
+                            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-500 truncate">
+                          {room.type || "Project"} • {room.members?.length || 0} members
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Desktop Empty State */}
+            <div className="hidden md:flex flex-1 items-center justify-center bg-slate-50 dark:bg-slate-900">
+              <div className="text-center text-slate-500">
+                <MessageSquare size={64} className="mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-semibold mb-2">Select a chat</h3>
+                <p>Choose a conversation from the sidebar to start messaging</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

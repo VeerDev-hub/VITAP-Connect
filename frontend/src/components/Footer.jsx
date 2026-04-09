@@ -14,7 +14,7 @@ export default function Footer() {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <div>
           <Link to="/" className="font-display text-2xl font-bold tracking-tight">
-            VITAP<span className="text-blue-600">Connect</span>
+            VITAP<span className="text-slate-900 dark:text-slate-100">Connect</span>
           </Link>
           <p className="mt-4 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-300">
             VITAP Connect is a student collaboration platform that helps VITAP University students find teammates, build study groups, and work together on academic projects and hackathons.
@@ -34,7 +34,7 @@ export default function Footer() {
         <div>
           <h3 className="font-display text-lg font-bold">Explore</h3>
           <div className="mt-4 grid gap-3 text-sm text-slate-600 dark:text-slate-300">
-            {links.map(([label, href]) => <Link key={href} className="transition hover:text-blue-600" to={href}>{label}</Link>)}
+            {links.map(([label, href]) => <Link key={href} className="transition hover:text-slate-900 dark:hover:text-slate-100" to={href}>{label}</Link>)}
           </div>
         </div>
 

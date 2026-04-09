@@ -3,7 +3,7 @@
 const statusCopy = {
   friend: ["Friends", CheckCircle2, "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200"],
   requestSent: ["Request sent", Clock3, "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200"],
-  requestReceived: ["Requested you", UserPlus, "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200"]
+  requestReceived: ["Requested you", UserPlus, "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"]
 };
 
 export default function StudentCard({ student, actionLabel = "Connect", onAction, secondaryActionLabel, onSecondaryAction, dangerActionLabel, onDangerAction }) {
@@ -24,7 +24,7 @@ export default function StudentCard({ student, actionLabel = "Connect", onAction
         </div>
       </div>
       <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">{student.bio || student.reason || "Ready to collaborate on campus projects."}</p>
-      {student.reason && <p className="mt-3 rounded-2xl bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">Why recommended: {student.reason}</p>}
+      {student.reason && <p className="mt-3 rounded-2xl bg-slate-100 px-4 py-3 text-xs font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100">Why recommended: {student.reason}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
         {(student.skills || []).slice(0, 4).map((skill) => <span key={skill} className="tag">{skill}</span>)}
       </div>

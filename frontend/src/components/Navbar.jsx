@@ -28,7 +28,7 @@ export default function Navbar({ darkMode, setDarkMode }) {
     <header className="sticky top-0 z-40 border-b border-white/70 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/70">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
         <Link to="/" className="font-display text-2xl font-bold tracking-tight">
-          VITAP<span className="text-blue-600">Connect</span>
+          VITAP<span className="text-slate-900 dark:text-slate-100">Connect</span>
         </Link>
         <div className="hidden items-center gap-2 lg:flex">
           {user && links.map(([label, href]) => <NavItem key={href} to={href}>{label}</NavItem>)}

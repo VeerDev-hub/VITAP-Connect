@@ -23,7 +23,7 @@ function VideoTile({ title, subtitle, stream, muted = false, isVideoEnabled = tr
       {stream && isVideoEnabled ? (
         <video ref={videoRef} autoPlay playsInline muted={muted || local} className="h-56 w-full bg-slate-950 object-cover" />
       ) : (
-        <div className="flex h-56 items-center justify-center bg-gradient-to-br from-slate-800 to-slate-950">
+        <div className="flex h-56 items-center justify-center bg-slate-800">
           <div className="text-center text-slate-200">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-2xl font-bold">
               {title?.charAt(0)?.toUpperCase() || "U"}

@@ -36,11 +36,10 @@ export default function Auth({ mode }) {
   }
 
   return (
-    <section className="relative overflow-hidden px-4 py-12">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_10%_10%,rgba(37,99,235,0.24),transparent_30%),radial-gradient(circle_at_85%_0%,rgba(20,184,166,0.2),transparent_28%)]" />
+    <section className="relative overflow-hidden px-4 py-12 bg-slate-50 dark:bg-slate-950">
       <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="card bg-slate-950 text-white dark:bg-slate-900">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-blue-100"><Sparkles size={16} /> VITAP student network</span>
+          <span className="inline-flex items-center gap-2 rounded-full bg-slate-800/90 px-4 py-2 text-sm font-semibold text-slate-100 dark:bg-slate-700/90 dark:text-slate-100"><Sparkles size={16} /> VITAP student network</span>
           <h1 className="mt-6 font-display text-5xl font-bold">{isRegister ? "Join VITAP Connect with your college email." : "Login to VITAP Connect."}</h1>
           <p className="mt-5 leading-7 text-slate-300">{isRegister ? "Use your VIT-AP student mail to create your account instantly and start discovering teammates, friends, and projects." : "Sign in with your VIT-AP student account to continue your chats, projects, and campus connections."}</p>
           <div className="mt-8 grid gap-4 text-sm text-slate-200">
@@ -75,7 +74,7 @@ export default function Auth({ mode }) {
           {(errors.email || errors.confirmPassword || errors.password) && <p className="text-sm font-semibold text-rose-600">{errors.email?.message || errors.confirmPassword?.message || errors.password?.message}</p>}
           <button className="btn-primary w-full" disabled={isSubmitting}>{isSubmitting ? "Please wait..." : isRegister ? "Create account" : "Login"}</button>
           <p className="text-center text-sm text-slate-500">
-            {isRegister ? "Already have an account?" : "New to VITAP Connect?"} <Link className="font-semibold text-blue-600" to={isRegister ? "/login" : "/register"}>{isRegister ? "Login" : "Register"}</Link>
+            {isRegister ? "Already have an account?" : "New to VITAP Connect?"} <Link className="font-semibold text-slate-900 dark:text-slate-100" to={isRegister ? "/login" : "/register"}>{isRegister ? "Login" : "Register"}</Link>
           </p>
         </form>
       </div>

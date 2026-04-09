@@ -29,9 +29,7 @@ const steps = [
 
 export default function GraphPreview() {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-violet-100 p-5 dark:border-white/10 dark:from-slate-900 dark:via-blue-950/50 dark:to-violet-950/40">
-      <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-blue-400/20 blur-3xl" />
-      <div className="absolute bottom-0 left-0 h-28 w-28 rounded-full bg-violet-400/20 blur-3xl" />
+    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 p-5 dark:border-slate-700 dark:bg-slate-950">
 
       <div className="relative">
         <span className="tag">Shortest connection path</span>
@@ -45,10 +43,10 @@ export default function GraphPreview() {
             const Icon = step.icon;
             return (
               <div key={step.label} className="flex items-center gap-3">
-                <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${step.tone} text-white shadow-lg`}>
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
                   <Icon size={22} />
                 </div>
-                <div className="min-w-0 flex-1 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/60">
+                <div className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/80">
                   <p className="font-semibold">{step.label}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{step.detail}</p>
                 </div>
