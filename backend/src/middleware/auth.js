@@ -4,8 +4,7 @@ import { sanitizeStudent } from "../utils/normalize.js";
 
 export async function requireAuth(req, res, next) {
   try {
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    const token = req.cookies?.jwt;
     if (!token) return res.status(401).json({ message: "Missing auth token" });
 
     const payload = jwt.verify(token, process.env.JWT_SECRET);

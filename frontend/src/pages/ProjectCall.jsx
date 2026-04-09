@@ -1,6 +1,6 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { LoaderCircle, Mic, MicOff, MonitorUp, PhoneOff, ScreenShareOff, Video, VideoOff, Users } from "lucide-react";
+import { LoaderCircle, Maximize2, Mic, MicOff, Minimize2, MonitorUp, PhoneOff, Pin, ScreenShareOff, Video, VideoOff, Users } from "lucide-react";
 import { api } from "../services/api";
 import { getSocket } from "../services/socket";
 import { useAuth } from "../context/AuthContext";
@@ -9,7 +9,7 @@ const fallbackIceServers = [
   { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }
 ];
 
-function VideoTile({ title, subtitle, stream, muted = false, isVideoEnabled = true, isAudioEnabled = true, local = false, sharingScreen = false, pinned = false, onPin }) {
+function VideoTile({ title, subtitle, stream, muted = false, isVideoEnabled = true, isAudioEnabled = true, local = false, sharingScreen = false, pinned = false, tall = false, onPin }) {
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -19,11 +19,11 @@ function VideoTile({ title, subtitle, stream, muted = false, isVideoEnabled = tr
   }, [stream]);
 
   return (
-    <button type="button" onClick={onPin} className={`relative overflow-hidden rounded-[2rem] border text-left ${pinned ? "border-blue-400 ring-2 ring-blue-400/40" : "border-white/10"} bg-slate-900`}>
+    <button type="button" onClick={onPin} className={`relative overflow-hidden rounded-[2rem] border text-left w-full ${pinned ? "border-blue-400 ring-2 ring-blue-400/40" : "border-white/10"} bg-slate-900`}>
       {stream && isVideoEnabled ? (
-        <video ref={videoRef} autoPlay playsInline muted={muted || local} className="h-56 w-full bg-slate-950 object-cover" />
+        <video ref={videoRef} autoPlay playsInline muted={muted || local} className={`${tall ? "h-[60vh]" : "h-56"} w-full bg-slate-950 object-cover`} />
       ) : (
-        <div className="flex h-56 items-center justify-center bg-slate-800">
+        <div className={`flex ${tall ? "h-[60vh]" : "h-56"} items-center justify-center bg-slate-800`}>
           <div className="text-center text-slate-200">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-2xl font-bold">
               {title?.charAt(0)?.toUpperCase() || "U"}
@@ -69,6 +69,8 @@ export default function ProjectCall() {
   const [isCameraEnabled, setIsCameraEnabled] = useState((searchParams.get("type") || "video") !== "voice");
   const [isSharingScreen, setIsSharingScreen] = useState(false);
   const [pinnedTileId, setPinnedTileId] = useState("local");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const pinnedWrapperRef = useRef(null);
 
   const type = searchParams.get("type") || "video";
   const project = searchParams.get("project") || "Project room";
@@ -125,6 +127,25 @@ export default function ProjectCall() {
     setRemoteParticipants((current) => current.filter((participant) => participant.socketId !== socketId));
     setPinnedTileId((current) => current === socketId ? "local" : current);
   }
+
+  function toggleFullscreen() {
+    const el = pinnedWrapperRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  }
+
+  // Sync state when user presses Escape to exit fullscreen
+  useEffect(() => {
+    function onFsChange() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
 
   function closePeerConnection(socketId) {
     const connection = peerConnectionsRef.current.get(socketId);
@@ -451,13 +472,24 @@ export default function ProjectCall() {
         ) : (
           <div className="mt-8 space-y-4">
             {pinnedItem && (
-              <div className="rounded-[2rem] border border-white/10 bg-slate-900 p-3">
+              <div ref={pinnedWrapperRef} className="rounded-[2rem] border border-white/10 bg-slate-900 p-3">
                 <div className="mb-3 flex items-center justify-between gap-3 px-2">
                   <div>
                     <p className="text-lg font-semibold">Focused view: {pinnedItem.title}</p>
-                    <p className="text-sm text-slate-300">Click any tile below to pin it here and enlarge what they are sharing.</p>
+                    <p className="text-sm text-slate-300">Click any tile below to pin it here.</p>
                   </div>
-                  {pinnedItem.sharingScreen && <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">Sharing screen</span>}
+                  <div className="flex items-center gap-2">
+                    {pinnedItem.sharingScreen && <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">Sharing screen</span>}
+                    {/* Fullscreen toggle */}
+                    <button
+                      type="button"
+                      title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                      className="rounded-full bg-white/10 p-2 hover:bg-white/20 transition-colors"
+                      onClick={toggleFullscreen}
+                    >
+                      {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                    </button>
+                  </div>
                 </div>
                 <VideoTile
                   title={pinnedItem.title}
@@ -469,6 +501,7 @@ export default function ProjectCall() {
                   local={pinnedItem.local}
                   muted={pinnedItem.local}
                   pinned
+                  tall
                   onPin={() => setPinnedTileId(pinnedItem.id)}
                 />
               </div>

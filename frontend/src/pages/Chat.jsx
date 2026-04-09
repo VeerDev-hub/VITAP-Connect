@@ -1,6 +1,6 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BellDot, Check, CheckCheck, Clock3, MessageSquare, Phone, Send, SmilePlus, Users, Video, MoreVertical, Menu, ArrowLeft } from "lucide-react";
+import { Check, CheckCheck, MessageSquare, Phone, Send, SmilePlus, Users, Video, MoreVertical, Menu, ArrowLeft, Trash2, ShieldAlert } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../services/api";
 import { getSocket } from "../services/socket";
@@ -60,9 +60,13 @@ export default function Chat() {
   const typingTimeoutRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const messageEndRef = useRef(null);
+  // Track if we should auto-scroll. Only true after a new message arrives, not on initial load.
+  const isInitialLoad = useRef(true);
+  const prevMessageCount = useRef(0);
   const [mode, setMode] = useState("direct");
   const [conversations, setConversations] = useState([]);
   const [rooms, setRooms] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [callHistory, setCallHistory] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -70,33 +74,45 @@ export default function Chat() {
   const [typingLabel, setTypingLabel] = useState("");
   const [onlineUserIds, setOnlineUserIds] = useState([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupMembers, setNewGroupMembers] = useState([]);
+  const headerMenuRef = useRef(null);
 
   const activeItem = activeChat?.type === "project"
     ? rooms.find((room) => room.id === activeChat.id)
+    : activeChat?.type === "group"
+    ? groups.find((g) => g.id === activeChat.id)
     : conversations.find((conversation) => conversation.id === activeChat?.id);
 
   async function loadSidebar() {
-    const [conversationResponse, projectResponse, callResponse] = await Promise.all([
+    const [conversationResponse, projectResponse, callResponse, groupResponse] = await Promise.all([
       api.get("/chat/conversations"),
       api.get("/projects"),
-      api.get("/calls/history")
+      api.get("/calls/history"),
+      api.get("/groups").catch(() => ({ data: { groups: [] } }))
     ]);
 
     const nextConversations = conversationResponse.data.conversations || [];
     const nextRooms = (projectResponse.data.projects || [])
       .filter((project) => project.isMember)
       .map((project) => ({ ...project, unreadCount: project.unreadCount || 0 }));
+    const nextGroups = groupResponse.data.groups || [];
 
     setConversations(nextConversations);
     setRooms(nextRooms);
+    setGroups(nextGroups);
     setCallHistory(callResponse.data.calls || []);
 
     setActiveChat((current) => {
-      if (current && ((current.type === "direct" && nextConversations.some((item) => item.id === current.id)) || (current.type === "project" && nextRooms.some((item) => item.id === current.id)))) {
-        return current;
-      }
+      if (current && (
+        (current.type === "direct" && nextConversations.some((item) => item.id === current.id)) ||
+        (current.type === "project" && nextRooms.some((item) => item.id === current.id)) ||
+        (current.type === "group" && nextGroups.some((item) => item.id === current.id))
+      )) return current;
       if (nextConversations[0]) return { type: "direct", id: nextConversations[0].id };
       if (nextRooms[0]) return { type: "project", id: nextRooms[0].id };
       return null;
@@ -104,10 +120,10 @@ export default function Chat() {
   }
 
   async function loadMessages(nextActiveChat) {
-    if (!nextActiveChat) {
-      setMessages([]);
-      return;
-    }
+    if (!nextActiveChat) { setMessages([]); return; }
+    isInitialLoad.current = true;
+    prevMessageCount.current = 0;
+    setShouldAutoScroll(false);
 
     if (nextActiveChat.type === "direct") {
       const { data } = await api.get(`/chat/messages/${nextActiveChat.id}`);
@@ -115,6 +131,12 @@ export default function Chat() {
       await api.post(`/chat/read/${nextActiveChat.id}`);
       socket.emit("direct:read", { otherUserId: nextActiveChat.id });
       setConversations((current) => current.map((conversation) => conversation.id === nextActiveChat.id ? { ...conversation, unreadCount: 0 } : conversation));
+      return;
+    }
+
+    if (nextActiveChat.type === "group") {
+      const { data } = await api.get(`/groups/${nextActiveChat.id}/messages`);
+      setMessages(data.messages || []);
       return;
     }
 
@@ -134,7 +156,10 @@ export default function Chat() {
     if (mode === "project" && rooms.length && activeChat?.type !== "project") {
       setActiveChat({ type: "project", id: rooms[0].id });
     }
-  }, [mode, conversations, rooms, activeChat]);
+    if (mode === "group" && groups.length && activeChat?.type !== "group") {
+      setActiveChat({ type: "group", id: groups[0].id });
+    }
+  }, [mode, conversations, rooms, groups, activeChat]);
 
   useEffect(() => {
     socket.auth = { token: localStorage.getItem("vitap_connect_token") };
@@ -219,13 +244,30 @@ export default function Chat() {
       api.get("/calls/history").then(({ data }) => setCallHistory(data.calls || [])).catch(() => {});
     };
 
+    const handleGroupMessage = (message) => {
+      const isActive = activeChat?.type === "group" && activeChat.id === message.groupId;
+      if (isActive) {
+        setMessages((current) => [...current, message]);
+      } else if (message.senderId !== user.id) {
+        setGroups((current) => current.map((g) => g.id === message.groupId ? { ...g, unreadCount: (g.unreadCount || 0) + 1 } : g));
+      }
+    };
+
+    const handleGroupTyping = ({ groupId, userName, isTyping }) => {
+      if (activeChat?.type === "group" && activeChat.id === groupId) {
+        setTypingLabel(isTyping ? `${userName} is typing...` : "");
+      }
+    };
+
     socket.on("presence:update", handlePresence);
     socket.on("direct:message", handleDirectMessage);
     socket.on("direct:delivered", handleDirectDelivered);
     socket.on("direct:read", handleDirectRead);
     socket.on("project:message", handleProjectMessage);
+    socket.on("group:message", handleGroupMessage);
     socket.on("direct:typing", handleDirectTyping);
     socket.on("project:typing", handleProjectTyping);
+    socket.on("group:typing", handleGroupTyping);
     socket.on("call:invite-response", refreshCalls);
     socket.on("call:missed", refreshCalls);
     socket.on("call:invite", refreshCalls);
@@ -236,8 +278,10 @@ export default function Chat() {
       socket.off("direct:delivered", handleDirectDelivered);
       socket.off("direct:read", handleDirectRead);
       socket.off("project:message", handleProjectMessage);
+      socket.off("group:message", handleGroupMessage);
       socket.off("direct:typing", handleDirectTyping);
       socket.off("project:typing", handleProjectTyping);
+      socket.off("group:typing", handleGroupTyping);
       socket.off("call:invite-response", refreshCalls);
       socket.off("call:missed", refreshCalls);
       socket.off("call:invite", refreshCalls);
@@ -251,6 +295,8 @@ export default function Chat() {
 
     if (activeChat.type === "direct") {
       socket.emit("direct:join", { otherUserId: activeChat.id });
+    } else if (activeChat.type === "group") {
+      socket.emit("group:join", { groupId: activeChat.id });
     } else {
       socket.emit("project:join", { projectId: activeChat.id });
     }
@@ -259,10 +305,26 @@ export default function Chat() {
   }, [activeChat, socket]);
 
   useEffect(() => {
-    if (shouldAutoScroll && messageEndRef.current) {
+    const count = messages.length;
+    if (isInitialLoad.current) {
+      // First time messages arrive after switching chat — mark done, don't scroll.
+      isInitialLoad.current = false;
+      prevMessageCount.current = count;
+      return;
+    }
+    // A new message was added — scroll only if user is near the bottom.
+    if (count > prevMessageCount.current && shouldAutoScroll && messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, typingLabel, shouldAutoScroll]);
+    prevMessageCount.current = count;
+  }, [messages]);
+
+  useEffect(() => {
+    // Scroll down for typing indicator when near bottom
+    if (typingLabel && shouldAutoScroll && messageEndRef.current) {
+      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [typingLabel, shouldAutoScroll]);
 
   const handleScroll = () => {
     if (messagesContainerRef.current) {
@@ -271,6 +333,17 @@ export default function Chat() {
       setShouldAutoScroll(isNearBottom);
     }
   };
+
+  // Close header dropdown if clicked outside
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target)) {
+        setHeaderMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   function emitTyping(nextText) {
     const isDirect = activeChat?.type === "direct";
@@ -330,10 +403,36 @@ export default function Chat() {
       socket.emit("project:message", { projectId: activeChat.id, text: value });
     }
 
+    // New message sent — enable auto-scroll
+    setShouldAutoScroll(true);
     setText("");
     setTypingLabel("");
     setShowEmojiPicker(false);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+  }
+
+  async function deleteMessage(messageId) {
+    try {
+      await api.delete(`/chat/messages/${messageId}`);
+      setMessages((current) => current.filter((m) => (m._id || m.id) !== messageId));
+      toast.success("Message deleted");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete message");
+    }
+  }
+
+  async function blockAndClose() {
+    if (!activeItem) return;
+    try {
+      await api.post("/connections/block", { friendId: activeItem.id });
+      toast.success(`${activeItem.name} has been blocked`);
+      setHeaderMenuOpen(false);
+      // Remove from conversations list
+      setConversations((current) => current.filter((c) => c.id !== activeItem.id));
+      setActiveChat(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to block user");
+    }
   }
 
   return (
@@ -635,7 +734,7 @@ export default function Chat() {
                 </div>
               </div>
               {activeChat?.type === "direct" && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <button
                     type="button"
                     className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -650,12 +749,28 @@ export default function Chat() {
                   >
                     <Video size={20} />
                   </button>
-                  <button
-                    type="button"
-                    className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
-                  >
-                    <MoreVertical size={20} />
-                  </button>
+                  {/* 3-dot header menu */}
+                  <div className="relative" ref={headerMenuRef}>
+                    <button
+                      type="button"
+                      className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                      onClick={() => setHeaderMenuOpen((v) => !v)}
+                    >
+                      <MoreVertical size={20} />
+                    </button>
+                    {headerMenuOpen && (
+                      <div className="absolute right-0 top-10 z-50 w-48 rounded-xl shadow-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        <button
+                          type="button"
+                          className="flex items-center gap-3 w-full px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          onClick={blockAndClose}
+                        >
+                          <ShieldAlert size={16} />
+                          Block User
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -675,12 +790,13 @@ export default function Chat() {
               )}
               {messages.map((message, index) => {
                 const mine = message.senderId === user.id;
+                const msgId = message._id || message.id;
                 const prevMessage = messages[index - 1];
                 const showAvatar = !prevMessage || prevMessage.senderId !== message.senderId;
                 const showTimestamp = !prevMessage || new Date(message.createdAt) - new Date(prevMessage.createdAt) > 300000; // 5 minutes
 
                 return (
-                  <div key={`${message.createdAt}-${index}`} className={`flex gap-2 px-2 ${mine ? "justify-end" : "justify-start"}`}>
+                  <div key={`${message.createdAt}-${index}`} className={`flex gap-2 px-2 group ${mine ? "justify-end" : "justify-start"}`}>
                     {!mine && showAvatar && (
                       <div className="w-8 h-8 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                         <span className="text-xs text-slate-600 dark:text-slate-300 font-semibold">
@@ -705,8 +821,21 @@ export default function Chat() {
                           })}
                         </p>
                       )}
-                      <div className={`rounded-2xl px-4 py-2 ${mine ? "bg-blue-500 text-white" : "bg-white dark:bg-slate-700 text-slate-900 dark:text-white"}`}>
-                        <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                      <div className="flex items-end gap-1">
+                        {/* Delete button — only for own messages, shown on hover */}
+                        {mine && msgId && activeChat?.type === "direct" && (
+                          <button
+                            type="button"
+                            title="Delete message"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0 mb-1"
+                            onClick={() => deleteMessage(msgId)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                        <div className={`rounded-2xl px-4 py-2 ${mine ? "bg-blue-500 text-white" : "bg-white dark:bg-slate-700 text-slate-900 dark:text-white"}`}>
+                          <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                        </div>
                       </div>
                       <div className={`flex items-center gap-1 mt-1 text-xs text-slate-400 ${mine ? "justify-end" : "justify-start"}`}>
                         <span>{formatTimestamp(message.createdAt)}</span>

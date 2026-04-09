@@ -10,7 +10,11 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import dns from "node:dns";
 import { Server as SocketServer } from "socket.io";
+import rateLimit from "express-rate-limit";
+import webPush from "web-push";
+import cookieParser from "cookie-parser";
 import { initSchema, readQuery, runQuery } from "./db.js";
 import { requireAdmin, requireAuth } from "./middleware/auth.js";
 import { integer, list, sanitizeStudent } from "./utils/normalize.js";
@@ -64,9 +68,36 @@ const callLogSchema = new mongoose.Schema({
   endedAt: { type: Date },
   durationSeconds: { type: Number, default: 0 }
 });
+const groupChatSchema = new mongoose.Schema({
+  id: { type: String, index: true, unique: true, required: true },
+  name: { type: String, required: true },
+  creatorId: { type: String, required: true },
+  members: { type: [String], default: [] },
+  createdAt: { type: Date, default: Date.now }
+});
+const groupMessageSchema = new mongoose.Schema({
+  groupId: { type: String, index: true, required: true },
+  senderId: { type: String, required: true },
+  senderName: { type: String, required: true },
+  cipherText: { type: String },
+  iv: { type: String },
+  authTag: { type: String },
+  createdAt: { type: Date, default: Date.now }
+});
+const pushSubscriptionSchema = new mongoose.Schema({
+  userId: { type: String, index: true, required: true },
+  subscription: { type: mongoose.Schema.Types.Mixed, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
 const ChatMessage = mongoose.models.ProjectMessage || mongoose.model("ProjectMessage", projectMessageSchema);
 const DirectMessage = mongoose.models.DirectMessage || mongoose.model("DirectMessage", directMessageSchema);
 const CallLog = mongoose.models.CallLog || mongoose.model("CallLog", callLogSchema);
+const GroupChat = mongoose.models.GroupChat || mongoose.model("GroupChat", groupChatSchema);
+const GroupMessage = mongoose.models.GroupMessage || mongoose.model("GroupMessage", groupMessageSchema);
+const PushSubscription = mongoose.models.PushSubscription || mongoose.model("PushSubscription", pushSubscriptionSchema);
+if (process.env.MONGODB_URI?.startsWith("mongodb+srv://")) {
+  dns.setServers(["8.8.8.8", "8.8.4.4"]);
+}
 const mongoReady = process.env.MONGODB_URI ? mongoose.connect(process.env.MONGODB_URI).then(() => true).catch((error) => { console.warn("MongoDB chat disabled:", error.message); return false; }) : Promise.resolve(false);
 const onlineUsers = new Map();
 const callRooms = new Map();
@@ -74,16 +105,102 @@ const pendingCallInvites = new Map();
 const chatKeySource = process.env.CHAT_ENCRYPTION_KEY || process.env.JWT_SECRET || "vitap-connect-chat";
 const chatEncryptionKey = createHash("sha256").update(chatKeySource).digest();
 
+// ── VAPID Setup for Web Push ─────────────────────────────────────────────────
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webPush.setVapidDetails(
+    `mailto:${process.env.EMAIL_USER || 'admin@vitapstudent.ac.in'}`,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
+
+// ── Rate Limiters ─────────────────────────────────────────────────────────────
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { message: "Too many attempts. Please try again in 15 minutes." },
+  standardHeaders: true, legacyHeaders: false
+});
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: "Too many OTP requests. Please wait 15 minutes." },
+  standardHeaders: true, legacyHeaders: false
+});
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 120,
+  message: { message: "Too many requests. Please slow down." },
+  standardHeaders: true, legacyHeaders: false
+});
+const messageLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { message: "Sending messages too fast. Please slow down." },
+  standardHeaders: true, legacyHeaders: false
+});
+
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 app.use("/uploads", express.static(uploadDir));
+
+// ── CSRF: validate Origin on mutating requests ────────────────────────────────
+app.use((req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  const origin = req.headers.origin || req.headers.referer || "";
+  if (!origin) return next(); // server-to-server or same-origin curl
+  const isAllowed = allowedOrigins.some((allowed) => origin.startsWith(allowed));
+  if (!isAllowed) return res.status(403).json({ message: "Forbidden: cross-origin request rejected" });
+  next();
+});
 
 const collegeEmailDomain = "@vitapstudent.ac.in";
 
 function sign(user) {
-  return jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "24h" });
 }
+
+// ── Push Notification helper ──────────────────────────────────────────────────
+async function sendPushToUser(userId, payload) {
+  if (!(await mongoReady)) return;
+  if (!process.env.VAPID_PUBLIC_KEY) return;
+  const subs = await PushSubscription.find({ userId }).lean();
+  const results = await Promise.allSettled(
+    subs.map((s) => webPush.sendNotification(s.subscription, JSON.stringify(payload)))
+  );
+  // Remove expired subscriptions (410 Gone)
+  const expiredIndexes = results.map((r, i) => r.status === 'rejected' && r.reason?.statusCode === 410 ? i : -1).filter(i => i >= 0);
+  if (expiredIndexes.length) {
+    const expiredIds = expiredIndexes.map(i => subs[i]._id);
+    await PushSubscription.deleteMany({ _id: { $in: expiredIds } });
+  }
+}
+
+// ── Email notification helper ────────────────────────────────────────────────
+async function sendEmailNotification(to, subject, html) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return;
+  try {
+    const nodemailer = await import("nodemailer");
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+    await transporter.sendMail({ from: `"VITAP Connect" <${process.env.EMAIL_USER}>`, to, subject, html });
+  } catch (err) {
+    console.warn('Email notification failed:', err.message);
+  }
+}
+
+// Apply general rate limiter to all API routes
+app.use('/auth', apiLimiter);
+app.use('/users', apiLimiter);
+app.use('/connections', apiLimiter);
+app.use('/projects', apiLimiter);
+app.use('/chat', apiLimiter);
+app.use('/groups', apiLimiter);
+app.use('/notifications', apiLimiter);
 
 function encryptMessage(text) {
   const iv = randomBytes(12);
@@ -271,7 +388,47 @@ app.get("/calls/history", requireAuth, async (req, res, next) => {
   }
 });
 
-app.post("/auth/register", async (req, res, next) => {
+app.post("/auth/send-register-otp", otpLimiter, async (req, res, next) => {
+  try {
+    const email = String(req.body.email || "").toLowerCase().trim();
+    if (!email.endsWith(collegeEmailDomain)) return res.status(400).json({ message: "Use your VIT-AP student email ending with @vitapstudent.ac.in" });
+    const existing = await readQuery("MATCH (s:Student {email: $email}) RETURN s", { email });
+    if (existing.records.length) return res.status(409).json({ message: "Email already registered" });
+
+    // Generate 6-digit OTP
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    // Replace any existing pending OTP for this email
+    await runQuery("MATCH (ot:RegOtpToken {email: $email}) DELETE ot", { email });
+    await runQuery("CREATE (ot:RegOtpToken {email: $email, otp: $otp, expiresAt: $expiresAt})", { email, otp, expiresAt });
+
+    const nodemailer = await import("nodemailer");
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+    await transporter.sendMail({
+      from: `"VITAP Connect" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Verify your email – VITAP Connect',
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+          <h2 style="color:#6366f1;margin-bottom:8px">VITAP Connect</h2>
+          <h3 style="margin-bottom:16px">Verify your email address</h3>
+          <p style="color:#475569">Use this one-time code to complete your registration. It expires in <strong>10 minutes</strong>.</p>
+          <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#f1f5f9;border-radius:8px;color:#1e293b;margin:24px 0">${otp}</div>
+          <p style="color:#94a3b8;font-size:13px">If you did not attempt to register on VITAP Connect, please ignore this email.</p>
+        </div>
+      `
+    });
+    res.json({ message: "OTP sent to your email" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/auth/register", authLimiter, async (req, res, next) => {
   try {
     const skills = list(req.body.skills);
     const interests = list(req.body.interests);
@@ -280,6 +437,16 @@ app.post("/auth/register", async (req, res, next) => {
     if (!email.endsWith(collegeEmailDomain)) return res.status(400).json({ message: "Use your VIT-AP student email ending with @vitapstudent.ac.in" });
     const existing = await readQuery("MATCH (s:Student {email: $email}) RETURN s", { email });
     if (existing.records.length) return res.status(409).json({ message: "Email already registered" });
+
+    // Verify registration OTP
+    const otp = String(req.body.otp || "").trim();
+    const now = new Date().toISOString();
+    const otpResult = await readQuery(
+      "MATCH (ot:RegOtpToken {email: $email, otp: $otp}) WHERE ot.expiresAt > $now RETURN ot",
+      { email, otp, now }
+    );
+    if (!otpResult.records.length) return res.status(400).json({ message: "Invalid or expired OTP. Please request a new one." });
+    await runQuery("MATCH (ot:RegOtpToken {email: $email}) DELETE ot", { email });
 
     const user = {
       id: randomUUID(),
@@ -302,12 +469,14 @@ app.post("/auth/register", async (req, res, next) => {
     await runQuery("CREATE (s:Student) SET s = $user", { user });
     await saveProfileRelationships(user.id, skills, interests, user.department, req.body.club || "");
     const created = await getStudentById(user.id);
-    res.status(201).json({ user: created, token: sign(created) });
+    const token = sign(created);
+    res.cookie("jwt", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 24 * 60 * 60 * 1000 });
+    res.status(201).json({ user: created });
   } catch (error) {
     next(error);
   }
 });
-app.post("/auth/login", async (req, res, next) => {
+app.post("/auth/login", authLimiter, async (req, res, next) => {
   try {
     const email = String(req.body.email || "").toLowerCase().trim();
     const result = await readQuery("MATCH (s:Student {email: $email}) RETURN s", { email });
@@ -317,7 +486,95 @@ app.post("/auth/login", async (req, res, next) => {
     }
     if (user.status === "blocked") return res.status(403).json({ message: "Account blocked by admin" });
     const safe = await getStudentById(user.id);
-    res.json({ user: safe, token: sign(safe) });
+    const token = sign(safe);
+    res.cookie("jwt", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 24 * 60 * 60 * 1000 });
+    res.json({ user: safe });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/auth/logout", (req, res) => {
+  res.clearCookie("jwt", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict" });
+  res.json({ message: "Logged out successfully" });
+});
+
+app.post("/auth/forgot-password", async (req, res, next) => {
+  try {
+    const email = String(req.body.email || "").toLowerCase().trim();
+    if (!email.endsWith(collegeEmailDomain)) return res.status(400).json({ message: "Use your VIT-AP student email" });
+    const result = await readQuery("MATCH (s:Student {email: $email}) RETURN s", { email });
+    if (!result.records.length) return res.status(404).json({ message: "No account found with this email" });
+
+    // Generate 6-digit OTP
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+
+    // Delete any existing OTPs for this email, then store new one
+    await runQuery("MATCH (ot:OtpToken {email: $email}) DELETE ot", { email });
+    await runQuery("CREATE (ot:OtpToken {email: $email, otp: $otp, expiresAt: $expiresAt})", { email, otp, expiresAt });
+
+    const nodemailer = await import("nodemailer");
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+    await transporter.sendMail({
+      from: `"VITAP Connect" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Your Password Reset OTP – VITAP Connect',
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+          <h2 style="color:#6366f1;margin-bottom:8px">VITAP Connect</h2>
+          <h3 style="margin-bottom:16px">Password Reset OTP</h3>
+          <p style="color:#475569">Use the following one-time password to reset your account password. It expires in <strong>10 minutes</strong>.</p>
+          <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#f1f5f9;border-radius:8px;color:#1e293b;margin:24px 0">${otp}</div>
+          <p style="color:#94a3b8;font-size:13px">If you did not request a password reset, you can safely ignore this email.</p>
+        </div>
+      `
+    });
+    res.json({ message: "OTP sent to your email" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/auth/verify-otp", async (req, res, next) => {
+  try {
+    const email = String(req.body.email || "").toLowerCase().trim();
+    const otp = String(req.body.otp || "").trim();
+    const now = new Date().toISOString();
+    const result = await readQuery(
+      "MATCH (ot:OtpToken {email: $email, otp: $otp}) WHERE ot.expiresAt > $now RETURN ot",
+      { email, otp, now }
+    );
+    if (!result.records.length) return res.status(400).json({ message: "Invalid or expired OTP" });
+
+    // OTP is valid – delete it and issue a short-lived reset token
+    await runQuery("MATCH (ot:OtpToken {email: $email}) DELETE ot", { email });
+    const resetToken = randomUUID();
+    const tokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    await runQuery("CREATE (rt:ResetToken {email: $email, token: $resetToken, expiresAt: $tokenExpiresAt})", { email, resetToken, tokenExpiresAt });
+    res.json({ message: "OTP verified", resetToken });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/auth/reset-password", async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+    const now = new Date().toISOString();
+    const result = await readQuery("MATCH (rt:ResetToken {token: $token}) WHERE rt.expiresAt > $now RETURN rt", { token, now });
+    if (!result.records.length) return res.status(400).json({ message: "Invalid or expired reset token" });
+    const resetToken = result.records[0].get("rt").properties;
+    const userResult = await readQuery("MATCH (s:Student {email: $email}) RETURN s", { email: resetToken.email });
+    if (!userResult.records.length) return res.status(404).json({ message: "User not found" });
+    const user = userResult.records[0].get("s").properties;
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    await runQuery("MATCH (s:Student {id: $id}) SET s.passwordHash = $passwordHash", { id: user.id, passwordHash: hashedPassword });
+    await runQuery("MATCH (rt:ResetToken {token: $token}) DELETE rt", { token });
+    res.json({ message: "Password reset successfully" });
   } catch (error) {
     next(error);
   }
@@ -455,6 +712,25 @@ app.post("/connections/request", requireAuth, async (req, res, next) => {
       CREATE (n:Notification {id: $notificationId, message: $message, createdAt: $createdAt})
       MERGE (to)-[:HAS_NOTIFICATION]->(n)
     `, { fromUserId: req.user.id, toUserId: req.body.toUserId, notificationId: randomUUID(), message: `${req.user.name} sent you a connection request`, createdAt: new Date().toISOString() });
+
+    // Push + email notification if recipient is offline
+    if (!isUserOnline(req.body.toUserId)) {
+      const toUser = await getStudentById(req.body.toUserId);
+      sendPushToUser(req.body.toUserId, {
+        title: 'New Connection Request',
+        body: `${req.user.name} sent you a connection request`,
+        url: '/connections'
+      }).catch(() => {});
+      if (toUser?.email) {
+        sendEmailNotification(toUser.email, `${req.user.name} wants to connect on VITAP Connect`,
+          `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
+            <h2 style="color:#6366f1">New Connection Request</h2>
+            <p><strong>${req.user.name}</strong> (${req.user.department}, Year ${req.user.year}) sent you a connection request on VITAP Connect.</p>
+            <a href="${process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:5173'}/connections" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#6366f1;color:white;border-radius:8px;text-decoration:none">View Request</a>
+          </div>`
+        ).catch(() => {});
+      }
+    }
     res.status(201).json({ message: "Connection request sent" });
   } catch (error) {
     next(error);
@@ -481,6 +757,25 @@ app.post("/connections/accept", requireAuth, async (req, res, next) => {
       MERGE (from)-[:FRIEND_OF]->(to)
       MERGE (to)-[:FRIEND_OF]->(from)
     `, { fromUserId: req.body.fromUserId, toUserId: req.user.id });
+
+    // Notify the requester that their request was accepted
+    if (!isUserOnline(req.body.fromUserId)) {
+      const fromUser = await getStudentById(req.body.fromUserId);
+      sendPushToUser(req.body.fromUserId, {
+        title: 'Connection Accepted!',
+        body: `${req.user.name} accepted your connection request`,
+        url: '/connections'
+      }).catch(() => {});
+      if (fromUser?.email) {
+        sendEmailNotification(fromUser.email, `${req.user.name} accepted your connection request`,
+          `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
+            <h2 style="color:#6366f1">Connection Accepted 🎉</h2>
+            <p><strong>${req.user.name}</strong> accepted your connection request on VITAP Connect. You can now message each other!</p>
+            <a href="${process.env.CLIENT_URL?.split(',')[0] || 'http://localhost:5173'}/chat" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#6366f1;color:white;border-radius:8px;text-decoration:none">Start Chatting</a>
+          </div>`
+        ).catch(() => {});
+      }
+    }
     res.json({ message: "Connection accepted" });
   } catch (error) {
     next(error);
@@ -789,6 +1084,20 @@ app.post("/chat/read/:userId", requireAuth, async (req, res, next) => {
     next(error);
   }
 });
+
+app.delete("/chat/messages/:messageId", requireAuth, async (req, res, next) => {
+  try {
+    if (!(await mongoReady)) return res.status(503).json({ message: "Chat unavailable" });
+    const message = await DirectMessage.findById(req.params.messageId);
+    if (!message) return res.status(404).json({ message: "Message not found" });
+    if (message.senderId !== req.user.id) return res.status(403).json({ message: "You can only delete your own messages" });
+    await DirectMessage.deleteOne({ _id: req.params.messageId });
+    res.json({ message: "Message deleted" });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/analytics/summary", requireAuth, async (req, res, next) => {
   try {
     const result = await readQuery(`
@@ -825,7 +1134,14 @@ app.patch("/admin/users/:id/status", requireAuth, requireAdmin, async (req, res,
 
 
 io.use((socket, next) => {
-  const token = socket.handshake.auth?.token;
+  let token = socket.handshake.auth?.token;
+  if (!token && socket.request.headers.cookie) {
+    const cookies = socket.request.headers.cookie.split(';');
+    const jwtCookie = cookies.find(c => c.trim().startsWith('jwt='));
+    if (jwtCookie) {
+      token = jwtCookie.split('=')[1];
+    }
+  }
   if (!token) return next(new Error("Unauthorized"));
   try {
     socket.user = jwt.verify(token, process.env.JWT_SECRET);
@@ -910,6 +1226,15 @@ io.on("connection", (socket) => {
     if (await mongoReady) await DirectMessage.create({ ...message, ...encrypted });
     io.to(`direct:${conversationId}`).emit("direct:message", { ...message, text: text.trim(), status: deliveredTo.includes(recipientId) ? "delivered" : "sent" });
     io.to(`user:${recipientId}`).emit("direct:message", { ...message, text: text.trim(), status: deliveredTo.includes(recipientId) ? "delivered" : "sent" });
+
+    // Push notification if recipient is offline
+    if (!isUserOnline(recipientId)) {
+      sendPushToUser(recipientId, {
+        title: `New message from ${socket.data.userName || 'Someone'}`,
+        body: text.trim().length > 60 ? text.trim().slice(0, 57) + '...' : text.trim(),
+        url: '/chat'
+      }).catch(() => {});
+    }
   });
 
   socket.on("project:join", ({ projectId }) => {
@@ -939,6 +1264,48 @@ io.on("connection", (socket) => {
     };
     if (await mongoReady) await ChatMessage.create({ ...message, ...encrypted });
     io.to(`project:${projectId}`).emit("project:message", { ...message, text: text.trim() });
+  });
+
+  // ── Group Chat Socket Events ────────────────────────────────────────────────
+  socket.on("group:join", async ({ groupId }) => {
+    if (!groupId) return;
+    if (!(await mongoReady)) return;
+    const group = await GroupChat.findOne({ id: groupId, members: userId }).lean();
+    if (group) socket.join(`group:${groupId}`);
+  });
+
+  socket.on("group:typing", ({ groupId, isTyping }) => {
+    if (!groupId) return;
+    socket.to(`group:${groupId}`).emit("group:typing", {
+      groupId, fromUserId: userId,
+      userName: socket.data.userName || "Student",
+      isTyping: Boolean(isTyping)
+    });
+  });
+
+  socket.on("group:message", async ({ groupId, text }) => {
+    if (!groupId || !text?.trim()) return;
+    if (!(await mongoReady)) return;
+    const group = await GroupChat.findOne({ id: groupId, members: userId }).lean();
+    if (!group) return;
+    const encrypted = encryptMessage(text.trim());
+    const message = {
+      groupId,
+      senderId: userId,
+      senderName: socket.data.userName || "Student",
+      createdAt: new Date()
+    };
+    await GroupMessage.create({ ...message, ...encrypted });
+    io.to(`group:${groupId}`).emit("group:message", { ...message, text: text.trim() });
+    // Push to offline members
+    const offlineMembers = group.members.filter(m => m !== userId && !isUserOnline(m));
+    for (const memberId of offlineMembers) {
+      sendPushToUser(memberId, {
+        title: `${socket.data.userName || 'Someone'} in ${group.name}`,
+        body: text.trim().length > 60 ? text.trim().slice(0, 57) + '...' : text.trim(),
+        url: '/chat'
+      }).catch(() => {});
+    }
   });
 
   socket.on("call:invite", async ({ toUserId, toUserName, roomId, callType, title }) => {
@@ -1077,7 +1444,89 @@ io.on("connection", (socket) => {
     emitPresence();
   });
 });
+// ── Push Notification Subscription ──────────────────────────────────────────
+app.get("/notifications/vapid-key", (req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || null });
+});
+
+app.post("/notifications/subscribe", requireAuth, async (req, res, next) => {
+  try {
+    if (!(await mongoReady)) return res.status(503).json({ message: "Unavailable" });
+    const { subscription } = req.body;
+    if (!subscription?.endpoint) return res.status(400).json({ message: "Invalid subscription" });
+    // Upsert by endpoint to avoid duplicates
+    await PushSubscription.findOneAndUpdate(
+      { userId: req.user.id, "subscription.endpoint": subscription.endpoint },
+      { userId: req.user.id, subscription },
+      { upsert: true, new: true }
+    );
+    res.json({ message: "Subscribed to push notifications" });
+  } catch (error) { next(error); }
+});
+
+app.delete("/notifications/unsubscribe", requireAuth, async (req, res, next) => {
+  try {
+    if (!(await mongoReady)) return res.json({ message: "ok" });
+    await PushSubscription.deleteMany({ userId: req.user.id });
+    res.json({ message: "Unsubscribed from push notifications" });
+  } catch (error) { next(error); }
+});
+
+// ── Group Chat ───────────────────────────────────────────────────────────────
+app.post("/groups/create", requireAuth, async (req, res, next) => {
+  try {
+    if (!(await mongoReady)) return res.status(503).json({ message: "Chat unavailable" });
+    const name = String(req.body.name || "").trim();
+    if (!name) return res.status(400).json({ message: "Group name is required" });
+    const memberIds = Array.isArray(req.body.memberIds) ? req.body.memberIds.filter(Boolean) : [];
+    const allMembers = [...new Set([req.user.id, ...memberIds])];
+    const group = await GroupChat.create({ id: randomUUID(), name, creatorId: req.user.id, members: allMembers });
+    res.status(201).json({ group });
+  } catch (error) { next(error); }
+});
+
+app.get("/groups", requireAuth, async (req, res, next) => {
+  try {
+    if (!(await mongoReady)) return res.json({ groups: [] });
+    const groups = await GroupChat.find({ members: req.user.id }).sort({ createdAt: -1 }).lean();
+    res.json({ groups });
+  } catch (error) { next(error); }
+});
+
+app.get("/groups/:groupId/messages", requireAuth, async (req, res, next) => {
+  try {
+    if (!(await mongoReady)) return res.json({ messages: [] });
+    const group = await GroupChat.findOne({ id: req.params.groupId, members: req.user.id }).lean();
+    if (!group) return res.status(403).json({ message: "Not a member of this group" });
+    const messages = await GroupMessage.find({ groupId: req.params.groupId }).sort({ createdAt: 1 }).limit(200).lean();
+    res.json({ messages: messages.map((m) => ({ ...m, text: decryptMessage(m) })) });
+  } catch (error) { next(error); }
+});
+
+app.post("/groups/:groupId/members", requireAuth, async (req, res, next) => {
+  try {
+    if (!(await mongoReady)) return res.status(503).json({ message: "Unavailable" });
+    const group = await GroupChat.findOne({ id: req.params.groupId, creatorId: req.user.id }).lean();
+    if (!group) return res.status(403).json({ message: "Only the group creator can add members" });
+    await GroupChat.updateOne({ id: req.params.groupId }, { $addToSet: { members: req.body.userId } });
+    res.json({ message: "Member added" });
+  } catch (error) { next(error); }
+});
+
+app.delete("/groups/:groupId/members/:userId", requireAuth, async (req, res, next) => {
+  try {
+    if (!(await mongoReady)) return res.status(503).json({ message: "Unavailable" });
+    const group = await GroupChat.findOne({ id: req.params.groupId }).lean();
+    if (!group) return res.status(404).json({ message: "Group not found" });
+    const canRemove = group.creatorId === req.user.id || req.params.userId === req.user.id;
+    if (!canRemove) return res.status(403).json({ message: "Not allowed" });
+    await GroupChat.updateOne({ id: req.params.groupId }, { $pull: { members: req.params.userId } });
+    res.json({ message: "Member removed" });
+  } catch (error) { next(error); }
+});
+
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
+
 
 app.use((error, req, res, next) => {
   console.error(error);
