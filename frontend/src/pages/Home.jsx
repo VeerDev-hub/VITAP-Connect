@@ -1,7 +1,8 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Bell, BrainCircuit, CheckCircle2, Compass, Network, Search, ShieldCheck, Sparkles, Upload, Users } from "lucide-react";
-import GraphPreview from "../components/GraphPreview";
+import GraphShowcase from "../components/GraphShowcase";
+
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -51,43 +52,28 @@ function Reveal({ children, className = "" }) {
 export default function Home() {
   return (
     <section className="relative overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
-      <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-16 pt-20 lg:min-h-[86vh] lg:grid-cols-[1.05fr_0.95fr]">
-        <motion.div variants={stagger} initial="hidden" animate="visible">
-          <motion.div variants={fadeUp} className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+      <div className="mx-auto max-w-7xl px-4 pb-16 pt-20 lg:min-h-[86vh] flex items-center">
+        <motion.div variants={stagger} initial="hidden" animate="visible" className="mx-auto max-w-4xl text-center">
+          <motion.div variants={fadeUp} className="mx-auto inline-flex items-center gap-2 rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
             <Sparkles size={16} /> VITAP University Community
           </motion.div>
           <motion.h1 variants={fadeUp} className="mt-6 font-display text-5xl font-bold leading-tight tracking-tight md:text-7xl">
             Connect with the right classmates for your next big project.
           </motion.h1>
-          <motion.p variants={fadeUp} className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
+          <motion.p variants={fadeUp} className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
             VITAP Connect helps VITAP University students find study partners, form project teams, and build lasting academic relationships through shared interests and goals.
           </motion.p>
-          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap gap-3">
+          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap justify-center gap-3">
             <Link className="btn-primary inline-flex items-center gap-2" to="/register">Start connecting <ArrowRight size={18} /></Link>
             <Link className="btn-secondary" to="/login">Login</Link>
           </motion.div>
-          <motion.div variants={fadeUp} className="mt-10 grid max-w-2xl gap-4 sm:grid-cols-3">
+          <motion.div variants={fadeUp} className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-3">
             {stats.map(([value, label]) => (
               <div key={label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <p className="font-display text-3xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
                 <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{label}</p>
               </div>
             ))}
-          </motion.div>
-        </motion.div>
-
-        <motion.div className="relative" initial={{ opacity: 0, scale: 0.94, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.7 }}>
-          <div className="card relative p-3">
-            <GraphPreview />
-          </div>
-          <motion.div className="absolute -bottom-6 left-6 right-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft dark:border-slate-700 dark:bg-slate-900" initial={{ y: 18, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }}>
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-slate-100 p-3 text-slate-900 dark:bg-slate-800 dark:text-slate-100"><Bell size={20} /></div>
-              <div>
-                <p className="font-semibold">New connection request</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">A Computer Science student from your year wants to connect for the upcoming hackathon.</p>
-              </div>
-            </div>
           </motion.div>
         </motion.div>
       </div>
@@ -104,6 +90,11 @@ export default function Home() {
             </motion.article>
           ))}
         </div>
+      </Reveal>
+
+      {/* Neo4j Graph Showcase */}
+      <Reveal className="mx-auto max-w-7xl px-4 py-10">
+        <GraphShowcase />
       </Reveal>
 
       <div className="mx-auto max-w-7xl px-4 py-16">

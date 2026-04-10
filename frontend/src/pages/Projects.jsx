@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { Check, Lightbulb, MessageSquare, Mic, Rocket, Trash2, Users, Video, X } from "lucide-react";
@@ -6,7 +6,7 @@ import { api } from "../services/api";
 import { getSocket } from "../services/socket";
 import { useAuth } from "../context/AuthContext";
 
-function ProjectChat({ project, user }) {
+const ProjectChat = memo(({ project, user }) => {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const socket = useMemo(() => getSocket(), []);
@@ -57,7 +57,7 @@ function ProjectChat({ project, user }) {
       </div>
     </div>
   );
-}
+});
 
 export default function Projects() {
   const { user } = useAuth();
@@ -121,7 +121,7 @@ export default function Projects() {
         <select className="input" {...register("type")}><option>Project</option><option>Hackathon</option></select>
         <input className="input" placeholder="Title" {...register("title", { required: true })} />
         <input className="input" placeholder="Required skills" {...register("skills")} />
-        <input className="input" placeholder="Deadline" {...register("deadline")} />
+        <input className="input" type="date" placeholder="Deadline" {...register("deadline")} />
         <input className="input md:col-span-2" placeholder="Hackathon name or event" {...register("hackathonName")} />
         <input className="input md:col-span-2" placeholder="Description" {...register("description")} />
         <button className="btn-primary md:col-span-4">Create collaboration room</button>
@@ -134,17 +134,46 @@ export default function Projects() {
                 <div>
                   <span className="tag">{project.type || "Project"}</span>
                   <h2 className="mt-3 font-display text-2xl font-bold">{project.title}</h2>
-                  <p className="mt-2 text-sm text-slate-500">Owner: {project.ownerName || "Unknown"}{project.deadline ? ` - Deadline: ${project.deadline}` : ""}</p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Owner: {project.ownerName || "Unknown"}
+                    {project.deadline && !isNaN(new Date(project.deadline).getTime()) ? ` - Deadline: ${new Date(project.deadline).toLocaleDateString()}` : project.deadline ? ` - Deadline: ${project.deadline}` : ""}
+                  </p>
                 </div>
-                {project.isOwner && <button className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700" onClick={() => deleteProject(project)}><Trash2 className="mr-2 inline" size={16} /> Delete</button>}
+                {project.isOwner && <button className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 transition-colors" onClick={() => deleteProject(project)}><Trash2 className="mr-2 inline" size={16} /> Delete</button>}
               </div>
               <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">{project.description}</p>
               <div className="mt-4 flex flex-wrap gap-2">{(project.skills || []).map((skill) => <span className="tag" key={skill}>{skill}</span>)}</div>
               <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-500"><Users size={16} /> {(project.members || []).length} members</p>
               {project.isMember ? (
                 <div className="mt-4 flex flex-wrap gap-3">
-                  <button className="btn-secondary" onClick={() => openCall(project, "video")}><Video className="mr-2 inline" size={18} /> Video room</button>
-                  <button className="btn-secondary" onClick={() => openCall(project, "voice")}><Mic className="mr-2 inline" size={18} /> Voice room</button>
+                  <div className="relative group">
+                    <button 
+                      className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed group" 
+                      onClick={() => openCall(project, "video")}
+                      disabled={(project.members || []).length < 2}
+                    >
+                      <Video className="mr-2 inline" size={18} /> Video room
+                    </button>
+                    {(project.members || []).length < 2 && (
+                      <span className="absolute -top-10 left-0 hidden group-hover:block w-48 rounded-lg bg-slate-900 px-3 py-2 text-[11px] text-white shadow-xl">
+                        Requires at least 2 members to start a call.
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative group">
+                    <button 
+                      className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed" 
+                      onClick={() => openCall(project, "voice")}
+                      disabled={(project.members || []).length < 2}
+                    >
+                      <Mic className="mr-2 inline" size={18} /> Voice room
+                    </button>
+                    {(project.members || []).length < 2 && (
+                      <span className="absolute -top-10 left-0 hidden group-hover:block w-48 rounded-lg bg-slate-900 px-3 py-2 text-[11px] text-white shadow-xl">
+                        Requires at least 2 members to start a call.
+                      </span>
+                    )}
+                  </div>
                 </div>
               ) : project.hasRequested ? (
                 <div className="mt-5 flex flex-wrap gap-3">

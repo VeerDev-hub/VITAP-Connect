@@ -62,7 +62,10 @@ export default function Profile() {
             <option>Flexible</option>
           </select>
           <input className="input" placeholder="Skills comma separated" {...register("skills")} />
-          <input className="input sm:col-span-2" placeholder="Interests comma separated" {...register("interests")} />
+          <input className="input" placeholder="Interests comma separated" {...register("interests")} />
+          <input className="input" placeholder="GitHub Username" {...register("github")} />
+          <input className="input" placeholder="LinkedIn Profile Slug" {...register("linkedin")} />
+          <input className="input" placeholder="Instagram Username" {...register("instagram")} />
           <textarea className="input sm:col-span-2" rows="4" placeholder="Bio" {...register("bio")} />
           <button className="btn-primary sm:col-span-2" disabled={isSubmitting}>Save profile</button>
         </div>

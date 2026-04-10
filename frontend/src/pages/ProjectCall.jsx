@@ -108,9 +108,16 @@ export default function ProjectCall() {
   const thumbnailItems = stageItems.filter((item) => item.id !== pinnedItem?.id);
 
   useEffect(() => {
+    // 1. Prioritize screen sharers
     const sharer = stageItems.find((item) => item.sharingScreen && item.id !== pinnedTileId);
     if (sharer) {
       setPinnedTileId(sharer.id);
+      return;
+    }
+
+    // 2. Prioritize remote participants over local view if nothing is pinned/local is pinned
+    if (pinnedTileId === "local" && remoteParticipants.length > 0) {
+      setPinnedTileId(remoteParticipants[0].socketId);
     }
   }, [remoteParticipants.length, isSharingScreen, pinnedTileId]);
 

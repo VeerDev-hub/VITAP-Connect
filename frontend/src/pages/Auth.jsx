@@ -175,7 +175,7 @@ export default function Auth({ mode }) {
 
                 {/* OTP box at top */}
                 <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 p-4 space-y-2">
-                  <label className="block text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                  <label htmlFor="reg-otp" className="block text-sm font-semibold text-indigo-700 dark:text-indigo-300">
                     6-Digit Verification Code
                   </label>
                   <input
@@ -207,32 +207,75 @@ export default function Auth({ mode }) {
                   </div>
                 </div>
 
-                {/* Profile fields */}
-                <input className="input" placeholder="Full name" {...field("name", { required: "Name is required" })} />
-                <input className="input" type="password" placeholder="Password" {...field("password", { required: "Password is required", minLength: { value: 6, message: "Use at least 6 characters" } })} />
-                <input className="input" type="password" placeholder="Confirm password" {...field("confirmPassword", { validate: (v) => v === password || "Passwords do not match" })} />
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <input className="input" list="department-list" placeholder="Department" {...field("department", { required: true })} />
-                  <input className="input" type="number" min="1" max="5" placeholder="Current year" {...field("year", { required: true })} />
-                  <input className="input" type="number" min="2026" max="2035" placeholder="Graduation year" {...field("graduationYear", { required: true })} />
-                  <input className="input" placeholder="Club or society" {...field("club")} />
-                  <input className="input sm:col-span-2" list="skill-list" placeholder="Skills: React, Node.js, Neo4j" {...field("skills", { required: true })} />
-                  <input className="input sm:col-span-2" list="interest-list" placeholder="Interests: AI, Web Development" {...field("interests", { required: true })} />
-                  <select className="input" {...field("goal")}>
-                    <option>Find project partners</option><option>Join hackathon teams</option>
-                    <option>Learn from seniors</option><option>Build portfolio projects</option>
-                  </select>
-                  <select className="input" {...field("availability")}>
-                    <option>Evenings</option><option>Weekends</option>
-                    <option>After classes</option><option>Flexible</option>
-                  </select>
-                  <textarea className="input sm:col-span-2" rows="2" placeholder="Short bio: what do you want to build?" {...field("bio")} />
+                {/* Profile fields with labels */}
+                <div>
+                  <label htmlFor="reg-name" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Full Name</label>
+                  <input id="reg-name" className="input" placeholder="Enter your full name" {...field("name", { required: "Name is required" })} />
                 </div>
 
-                {(errors.email || errors.confirmPassword || errors.password || errors.name) && (
+                <div>
+                  <label htmlFor="reg-password" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Password</label>
+                  <input id="reg-password" className="input" type="password" placeholder="Min 8 characters" {...field("password", { required: "Password is required", minLength: { value: 8, message: "Use at least 8 characters" }, maxLength: { value: 32, message: "Maximum 32 characters" } })} />
+                  {password && <PasswordStrength password={password} />}
+                </div>
+
+                <div>
+                  <label htmlFor="reg-confirm" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Confirm Password</label>
+                  <input id="reg-confirm" className="input" type="password" placeholder="Re-enter password" {...field("confirmPassword", { validate: (v) => v === password || "Passwords do not match" })} />
+                  {errors.confirmPassword && <p className="text-xs font-semibold text-rose-500 mt-1">{errors.confirmPassword.message}</p>}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="reg-dept" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Department</label>
+                    <input id="reg-dept" className="input" list="department-list" placeholder="Select department" {...field("department", { required: true })} />
+                  </div>
+                  <div>
+                    <label htmlFor="reg-year" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Current Year</label>
+                    <input id="reg-year" className="input" type="number" min="1" max="5" placeholder="e.g. 3" {...field("year", { required: true })} />
+                  </div>
+                  <div>
+                    <label htmlFor="reg-grad" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Graduation Year</label>
+                    <input id="reg-grad" className="input" type="number" min="2026" max="2035" placeholder="e.g. 2028" {...field("graduationYear", { required: true })} />
+                  </div>
+                  <div>
+                    <label htmlFor="reg-club" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Club / Society</label>
+                    <input id="reg-club" className="input" placeholder="Optional" {...field("club")} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="reg-skills" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Skills</label>
+                    <input id="reg-skills" className="input" list="skill-list" placeholder="React, Node.js, Neo4j" {...field("skills", { required: true })} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="reg-interests" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Interests</label>
+                    <input id="reg-interests" className="input" list="interest-list" placeholder="AI, Web Development" {...field("interests", { required: true })} />
+                  </div>
+                  <div>
+                    <label htmlFor="reg-goal" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Goal</label>
+                    <select id="reg-goal" className="input" {...field("goal")}>
+                      <option>Find project partners</option>
+                      <option>Join hackathon teams</option>
+                      <option>Learn from seniors</option>
+                      <option>Build portfolio projects</option>
+                      <option>Research</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="reg-avail" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Availability</label>
+                    <select id="reg-avail" className="input" {...field("availability")}>
+                      <option>Evenings</option><option>Weekends</option>
+                      <option>After classes</option><option>Flexible</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="reg-bio" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Bio</label>
+                    <textarea id="reg-bio" className="input" rows="2" placeholder="What do you want to build?" {...field("bio")} />
+                  </div>
+                </div>
+
+                {(errors.email || errors.password || errors.name) && (
                   <p className="text-sm font-semibold text-rose-600">
-                    {errors.name?.message || errors.email?.message || errors.password?.message || errors.confirmPassword?.message}
+                    {errors.name?.message || errors.email?.message || errors.password?.message}
                   </p>
                 )}
 
@@ -286,3 +329,39 @@ function StepDot({ active, done, label }) {
     </div>
   );
 }
+
+function PasswordStrength({ password }) {
+  const score = (() => {
+    let s = 0;
+    if (password.length >= 8) s++;
+    if (/[A-Z]/.test(password)) s++;
+    if (/[0-9]/.test(password)) s++;
+    if (/[^A-Za-z0-9]/.test(password)) s++;
+    return s;
+  })();
+
+  const levels = [
+    { label: "Too short", color: "bg-slate-200" },
+    { label: "Weak", color: "bg-rose-500" },
+    { label: "Fair", color: "bg-amber-500" },
+    { label: "Good", color: "bg-emerald-500" },
+    { label: "Strong", color: "bg-sky-500" },
+  ];
+
+  const current = password.length < 8 ? levels[0] : levels[score];
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+        <span className="text-slate-500">Security level</span>
+        <span className={password.length < 8 ? "text-slate-400" : current.color.replace("bg-", "text-")}>{current.label}</span>
+      </div>
+      <div className="flex gap-1 h-1">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className={`flex-1 rounded-full transition-colors duration-500 ${i <= score && password.length >= 8 ? current.color : "bg-slate-100 dark:bg-slate-800"}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+

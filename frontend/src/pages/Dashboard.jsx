@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Bell, CheckCircle2, FolderKanban, Sparkles, UserCheck, Users } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Bell, CheckCircle2, FolderKanban, MessageSquare, Sparkles, UserCheck, Users, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../services/api";
 import StudentCard from "../components/StudentCard";
@@ -38,6 +39,17 @@ export default function Dashboard() {
     setData((current) => ({ ...current, recommendations: current.recommendations.map((item) => item.id === student.id ? { ...item, connectionStatus: "requestSent" } : item) }));
   }
 
+  async function clearNotifications() {
+    await api.delete("/notifications/clear");
+    setData((current) => ({ ...current, notifications: [] }));
+    toast.success("Notifications cleared");
+  }
+
+  async function deleteNotification(id) {
+    await api.delete(`/notifications/${id}`);
+    setData((current) => ({ ...current, notifications: current.notifications.filter((n) => n.id !== id) }));
+  }
+
   useEffect(() => { load(); }, []);
 
   return (
@@ -47,6 +59,12 @@ export default function Dashboard() {
           <span className="tag">Your student hub</span>
           <h1 className="mt-3 font-display text-4xl font-bold">Welcome back, {user?.name?.split(" ")[0] || "Student"}</h1>
           <p className="mt-2 text-slate-600 dark:text-slate-300">Your personalized dashboard shows connection requests, recommendations, project opportunities, and campus updates.</p>
+        </div>
+        <div className="flex gap-2">
+          <Link to="/feedback" className="btn-secondary flex items-center gap-2 py-3 px-6 shadow-sm">
+            <MessageSquare size={18} />
+            Give Feedback
+          </Link>
         </div>
       </div>
 
@@ -73,7 +91,10 @@ export default function Dashboard() {
           </div>
           <div className="mt-5 grid gap-5 md:grid-cols-2">
             {data.recommendations.length === 0 && <p className="rounded-3xl bg-slate-100 p-5 text-sm text-slate-500 dark:bg-white/10 md:col-span-2">Add more skills and interests to unlock better recommendations.</p>}
-            {data.recommendations.map((student) => <StudentCard key={student.id} student={student} onAction={request} />)}
+            {data.recommendations.map((student) => {
+              // Priority: if already sent/received status exists from backend, use it.
+              return <StudentCard key={student.id} student={student} onAction={request} />;
+            })}
           </div>
         </div>
 
@@ -86,9 +107,18 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="card">
-            <h2 className="font-display text-2xl font-bold">Notifications</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-2xl font-bold">Notifications</h2>
+              {data.notifications.length > 0 && <button className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white" onClick={clearNotifications}>Clear all</button>}
+            </div>
             <div className="mt-4 space-y-3">
-              {data.notifications.map((item) => <p key={item.id} className="rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800">{item.message}</p>)}
+              {data.notifications.length === 0 && <p className="text-sm text-slate-500">No new notifications.</p>}
+              {data.notifications.map((item) => (
+                <div key={item.id} className="group relative rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800">
+                  <p>{item.message}</p>
+                  <button className="absolute right-2 top-2 hidden text-slate-400 hover:text-rose-500 group-hover:block" onClick={() => deleteNotification(item.id)} title="Delete notification"><X size={14} /></button>
+                </div>
+              ))}
             </div>
           </div>
         </div>

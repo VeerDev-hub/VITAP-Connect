@@ -84,6 +84,13 @@ const groupMessageSchema = new mongoose.Schema({
   authTag: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
+const feedbackSchema = new mongoose.Schema({
+  userId: { type: String, index: true, required: true },
+  userName: { type: String, required: true },
+  rating: { type: Number, required: true, min: 1, max: 5 },
+  message: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
 const pushSubscriptionSchema = new mongoose.Schema({
   userId: { type: String, index: true, required: true },
   subscription: { type: mongoose.Schema.Types.Mixed, required: true },
@@ -95,6 +102,7 @@ const CallLog = mongoose.models.CallLog || mongoose.model("CallLog", callLogSche
 const GroupChat = mongoose.models.GroupChat || mongoose.model("GroupChat", groupChatSchema);
 const GroupMessage = mongoose.models.GroupMessage || mongoose.model("GroupMessage", groupMessageSchema);
 const PushSubscription = mongoose.models.PushSubscription || mongoose.model("PushSubscription", pushSubscriptionSchema);
+const Feedback = mongoose.models.Feedback || mongoose.model("Feedback", feedbackSchema);
 if (process.env.MONGODB_URI?.startsWith("mongodb+srv://")) {
   dns.setServers(["8.8.8.8", "8.8.4.4"]);
 }
@@ -401,7 +409,36 @@ app.get("/calls/history", requireAuth, async (req, res, next) => {
   }
 });
 
-app.post("/auth/send-register-otp", otpLimiter, async (req, res, next) => {
+app.post("/feedback", requireAuth, async (req, res, next) => {
+  try {
+    if (!(await mongoReady)) return res.status(503).json({ message: "Database not ready" });
+    const { rating, message } = req.body;
+    if (!rating || !message) return res.status(400).json({ message: "Rating and message are required" });
+
+    const feedback = await Feedback.create({
+      userId: req.user.id,
+      userName: req.user.name || "Student",
+      rating: Number(rating),
+      message: message.trim()
+    });
+
+    res.status(201).json({ message: "Feedback submitted successfully", feedback });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/feedback", requireAdmin, async (req, res, next) => {
+  try {
+    if (!(await mongoReady)) return res.status(503).json({ message: "Database not ready" });
+    const feedbacks = await Feedback.find().sort({ createdAt: -1 }).lean();
+    res.json({ feedbacks });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/auth/send-register-otp", apiLimiter, async (req, res, next) => {
   try {
     const email = String(req.body.email || "").toLowerCase().trim();
     if (!email.endsWith(collegeEmailDomain)) return res.status(400).json({ message: "Use your VIT-AP student email ending with @vitapstudent.ac.in" });
@@ -608,6 +645,9 @@ app.patch("/users/me", requireAuth, async (req, res, next) => {
       availability: req.body.availability || req.user.availability || "Evenings",
       club: req.body.club || "",
       bio: req.body.bio || "",
+      github: req.body.github || req.user.github || "",
+      linkedin: req.body.linkedin || req.user.linkedin || "",
+      instagram: req.body.instagram || req.user.instagram || "",
       updatedAt: new Date().toISOString()
     };
     await runQuery("MATCH (s:Student {id: $id}) SET s += $updates", { id: req.user.id, updates });
@@ -675,16 +715,24 @@ app.get("/users/recommendations", requireAuth, async (req, res, next) => {
     const result = await readQuery(`
       MATCH (me:Student {id: $id})
       MATCH (s:Student)
-      WHERE s.id <> me.id AND coalesce(s.status, 'active') <> 'blocked' AND NOT EXISTS { MATCH (me)-[:FRIEND_OF]-(s) } AND NOT EXISTS { MATCH (me)-[:BLOCKED]-(s) }
+      WHERE s.id <> me.id AND coalesce(s.status, 'active') <> 'blocked' AND NOT EXISTS { MATCH (me)-[:BLOCKED]-(s) }
+      WITH me, s,
+           EXISTS { MATCH (me)-[:FRIEND_OF]-(s) } AS isFriend,
+           EXISTS { MATCH (me)-[:REQUESTED_CONNECTION]->(s) } AS requestSent,
+           EXISTS { MATCH (s)-[:REQUESTED_CONNECTION]->(me) } AS requestReceived
+      WHERE isFriend = false
       OPTIONAL MATCH (me)-[:HAS_SKILL]->(sharedSkill:Skill)<-[:HAS_SKILL]-(s)
       OPTIONAL MATCH (me)-[:INTERESTED_IN]->(sharedInterest:Interest)<-[:INTERESTED_IN]-(s)
       OPTIONAL MATCH (me)-[:FRIEND_OF]-(mutualFriend:Student)-[:FRIEND_OF]-(s)
-      WITH me, s, collect(DISTINCT sharedSkill.name) AS sharedSkills, collect(DISTINCT sharedInterest.name) AS sharedInterests, count(DISTINCT mutualFriend) AS mutualFriends
+      WITH me, s, requestSent, requestReceived, collect(DISTINCT sharedSkill.name) AS sharedSkills, collect(DISTINCT sharedInterest.name) AS sharedInterests, count(DISTINCT mutualFriend) AS mutualFriends
       OPTIONAL MATCH (s)-[:HAS_SKILL]->(skill:Skill)
       OPTIONAL MATCH (s)-[:INTERESTED_IN]->(interest:Interest)
-      WITH me, s, sharedSkills, sharedInterests, mutualFriends, collect(DISTINCT skill.name) AS skills, collect(DISTINCT interest.name) AS interests
-      WITH s, skills, interests, sharedSkills, sharedInterests, mutualFriends, size(sharedSkills) * 3 + size(sharedInterests) * 2 + mutualFriends + CASE WHEN s.department = me.department THEN 2 ELSE 0 END + CASE WHEN s.year = me.year THEN 1 ELSE 0 END AS score
-      RETURN s { .*, skills: skills, interests: interests, score: score, reason: CASE WHEN size(sharedSkills) > 0 THEN "Shared skill: " + sharedSkills[0] WHEN size(sharedInterests) > 0 THEN "Shared interest: " + sharedInterests[0] WHEN mutualFriends > 0 THEN "Mutual friend path" WHEN score > 0 THEN "Same department or year" ELSE "New campus match" END } AS student
+      WITH me, s, requestSent, requestReceived, sharedSkills, sharedInterests, mutualFriends, collect(DISTINCT skill.name) AS skills, collect(DISTINCT interest.name) AS interests
+      WITH s, skills, interests, sharedSkills, sharedInterests, mutualFriends, requestSent, requestReceived, 
+           size(sharedSkills) * 3 + size(sharedInterests) * 2 + mutualFriends + CASE WHEN s.department = me.department THEN 2 ELSE 0 END + CASE WHEN s.year = me.year THEN 1 ELSE 0 END AS score
+      RETURN s { .*, skills: skills, interests: interests, score: score, 
+                 connectionStatus: CASE WHEN requestSent THEN "requestSent" WHEN requestReceived THEN "requestReceived" ELSE "none" END,
+                 reason: CASE WHEN size(sharedSkills) > 0 THEN "Shared skill: " + sharedSkills[0] WHEN size(sharedInterests) > 0 THEN "Shared interest: " + sharedInterests[0] WHEN mutualFriends > 0 THEN "Mutual friend path" WHEN score > 0 THEN "Same department or year" ELSE "New campus match" END } AS student
       ORDER BY student.score DESC, student.name
       LIMIT 6
     `, { id: req.user.id });
@@ -770,6 +818,10 @@ app.post("/connections/accept", requireAuth, async (req, res, next) => {
       DELETE request
       MERGE (from)-[:FRIEND_OF]->(to)
       MERGE (to)-[:FRIEND_OF]->(from)
+      WITH from, to
+      OPTIONAL MATCH (to)-[:HAS_NOTIFICATION]->(n:Notification)
+      WHERE n.message CONTAINS from.name AND n.message CONTAINS "connection request"
+      DETACH DELETE n
     `, { fromUserId: req.body.fromUserId, toUserId: req.user.id });
 
     // Notify the requester that their request was accepted
@@ -798,8 +850,12 @@ app.post("/connections/accept", requireAuth, async (req, res, next) => {
 app.post("/connections/reject", requireAuth, async (req, res, next) => {
   try {
     await runQuery(`
-      MATCH (:Student {id: $fromUserId})-[request:REQUESTED_CONNECTION]->(:Student {id: $toUserId})
+      MATCH (from:Student {id: $fromUserId})-[request:REQUESTED_CONNECTION]->(to:Student {id: $toUserId})
       DELETE request
+      WITH from, to
+      OPTIONAL MATCH (to)-[:HAS_NOTIFICATION]->(n:Notification)
+      WHERE n.message CONTAINS from.name AND n.message CONTAINS "connection request"
+      DETACH DELETE n
     `, { fromUserId: req.body.fromUserId, toUserId: req.user.id });
     res.json({ message: "Connection request rejected" });
   } catch (error) {
@@ -946,6 +1002,11 @@ app.post("/projects/accept", requireAuth, async (req, res, next) => {
       MATCH (student:Student {id: $studentId})-[request:REQUESTED_TO_JOIN]->(p)
       DELETE request
       MERGE (student)-[:WORKS_ON]->(p)
+      WITH student, p
+      MATCH (owner:Student {id: $ownerId})
+      OPTIONAL MATCH (owner)-[:HAS_NOTIFICATION]->(n:Notification)
+      WHERE n.message CONTAINS student.name AND n.message CONTAINS "join your project"
+      DETACH DELETE n
       RETURN student.name AS name
     `, { ownerId: req.user.id, projectId: req.body.projectId, studentId: req.body.studentId });
     if (!result.records.length) return res.status(403).json({ message: "Only the project owner can accept requests" });
@@ -958,9 +1019,13 @@ app.post("/projects/accept", requireAuth, async (req, res, next) => {
 app.post("/projects/reject", requireAuth, async (req, res, next) => {
   try {
     const result = await runQuery(`
-      MATCH (:Student {id: $ownerId})-[:CREATED_PROJECT]->(p:Project {id: $projectId})
-      MATCH (:Student {id: $studentId})-[request:REQUESTED_TO_JOIN]->(p)
+      MATCH (owner:Student {id: $ownerId})-[:CREATED_PROJECT]->(p:Project {id: $projectId})
+      MATCH (student:Student {id: $studentId})-[request:REQUESTED_TO_JOIN]->(p)
       DELETE request
+      WITH owner, student
+      OPTIONAL MATCH (owner)-[:HAS_NOTIFICATION]->(n:Notification)
+      WHERE n.message CONTAINS student.name AND n.message CONTAINS "join your project"
+      DETACH DELETE n
       RETURN count(request) AS rejected
     `, { ownerId: req.user.id, projectId: req.body.projectId, studentId: req.body.studentId });
     if (!integer(result.records[0].get("rejected"))) return res.status(403).json({ message: "Only the project owner can reject requests" });
@@ -994,18 +1059,41 @@ app.get("/projects/recommendations", requireAuth, async (req, res, next) => {
     next(error);
   }
 });
+
 app.get("/notifications", requireAuth, async (req, res, next) => {
   try {
     const result = await readQuery(`
       MATCH (:Student {id: $id})-[:HAS_NOTIFICATION]->(n:Notification)
-      RETURN n ORDER BY n.createdAt DESC LIMIT 10
+      RETURN n ORDER BY n.createdAt DESC LIMIT 15
     `, { id: req.user.id });
-    const notifications = result.records.map((record) => record.get("n").properties);
-    if (!notifications.length) notifications.push({ id: "welcome", message: "Complete your profile to unlock stronger graph recommendations." });
+    const notifications = result.records.map((record) => {
+      const n = record.get("n");
+      return { ...n.properties, id: n.properties.id || n.elementId || n.identity?.toString() };
+    });
     res.json({ notifications });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
+});
+
+app.delete("/notifications/clear", requireAuth, async (req, res, next) => {
+  try {
+    await runQuery(`
+      MATCH (:Student {id: $id})-[rel:HAS_NOTIFICATION]->(n:Notification)
+      DETACH DELETE n
+    `, { id: req.user.id });
+    res.json({ message: "Notifications cleared" });
+  } catch (error) { next(error); }
+});
+
+app.delete("/notifications/:id", requireAuth, async (req, res, next) => {
+  try {
+    // Resilient delete: check both the 'id' property and the internal elementId
+    await runQuery(`
+      MATCH (:Student {id: $userId})-[rel:HAS_NOTIFICATION]->(n:Notification)
+      WHERE n.id = $id OR elementId(n) = $id OR toString(id(n)) = $id
+      DETACH DELETE n
+    `, { userId: req.user.id, id: String(req.params.id) });
+    res.json({ message: "Notification deleted" });
+  } catch (error) { next(error); }
 });
 
 app.get("/chat/conversations", requireAuth, async (req, res, next) => {
@@ -1057,7 +1145,7 @@ app.get("/chat/conversations", requireAuth, async (req, res, next) => {
     conversations = conversations.map((conversation) => ({
       ...conversation,
       isOnline: online.has(conversation.id)
-    }));
+    })).sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0));
 
     res.json({ conversations });
   } catch (error) {

@@ -81,8 +81,15 @@ export default function Chat() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupMembers, setNewGroupMembers] = useState([]);
   const headerMenuRef = useRef(null);
+  const activeChatRef = useRef(activeChat);
+  const userRef = useRef(user); // Added userRef to prevent stale closures
 
-  const activeItem = activeChat?.type === "project"
+  useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+  useEffect(() => { userRef.current = user; }, [user]);
+
+  const prevOnlineUserIds = useRef([]);
+
+  const activeItem = activeChatRef.current?.type === "project"
     ? rooms.find((room) => room.id === activeChat.id)
     : activeChat?.type === "group"
     ? groups.find((g) => g.id === activeChat.id)
@@ -129,6 +136,7 @@ export default function Chat() {
       const { data } = await api.get(`/chat/messages/${nextActiveChat.id}`);
       setMessages(data.messages || []);
       await api.post(`/chat/read/${nextActiveChat.id}`);
+      socket.emit("direct:join", { otherUserId: nextActiveChat.id }); // JOIN THE ROOM
       socket.emit("direct:read", { otherUserId: nextActiveChat.id });
       setConversations((current) => current.map((conversation) => conversation.id === nextActiveChat.id ? { ...conversation, unreadCount: 0 } : conversation));
       return;
@@ -136,13 +144,20 @@ export default function Chat() {
 
     if (nextActiveChat.type === "group") {
       const { data } = await api.get(`/groups/${nextActiveChat.id}/messages`);
+      socket.emit("group:join", { groupId: nextActiveChat.id }); // JOIN THE ROOM
       setMessages(data.messages || []);
       return;
     }
 
     const { data } = await api.get(`/projects/${nextActiveChat.id}/messages`);
+    socket.emit("project:join", { projectId: nextActiveChat.id }); // JOIN THE ROOM
     setMessages(data.messages || []);
     setRooms((current) => current.map((room) => room.id === nextActiveChat.id ? { ...room, unreadCount: 0 } : room));
+    
+    // Explicitly scroll to bottom after messages load
+    setTimeout(() => {
+      if (messageEndRef.current) messageEndRef.current.scrollIntoView({ behavior: "instant" });
+    }, 100);
   }
 
   useEffect(() => {
@@ -168,13 +183,26 @@ export default function Chat() {
 
     const handlePresence = ({ userIds }) => {
       const ids = userIds || [];
+      const newlyOnline = ids.filter(id => !prevOnlineUserIds.current.includes(id) && id !== user.id);
+      
+      if (newlyOnline.length > 0) {
+        newlyOnline.forEach(id => {
+          const friend = conversations.find(c => c.id === id);
+          if (friend) toast.success(`${friend.name} is now online`, { icon: "🟢", duration: 3000 });
+        });
+      }
+
+      prevOnlineUserIds.current = ids;
       setOnlineUserIds(ids);
       setConversations((current) => current.map((conversation) => ({ ...conversation, isOnline: ids.includes(conversation.id) })));
     };
 
     const handleDirectMessage = (message) => {
-      const otherUserId = message.senderId === user.id ? message.recipientId : message.senderId;
-      const isActive = activeChat?.type === "direct" && activeChat.id === otherUserId;
+      const currentUser = userRef.current;
+      if (!currentUser) return;
+      
+      const otherUserId = message.senderId === currentUser.id ? message.recipientId : message.senderId;
+      const isActive = activeChatRef.current?.type === "direct" && activeChatRef.current.id === otherUserId;
 
       setConversations((current) => {
         const exists = current.some((conversation) => conversation.id === otherUserId);
@@ -184,15 +212,20 @@ export default function Chat() {
             ...conversation,
             lastMessage: message.text,
             lastMessageAt: message.createdAt,
-            unreadCount: isActive || message.senderId === user.id ? 0 : (conversation.unreadCount || 0) + 1
+            unreadCount: isActive || message.senderId === currentUser.id ? 0 : (conversation.unreadCount || 0) + 1
           };
         });
-        return exists ? [...updated].sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0)) : updated;
+        return [...updated].sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0));
       });
 
       if (isActive) {
-        setMessages((current) => [...current, message]);
-        if (message.senderId !== user.id) {
+        setMessages((current) => {
+          const msgId = message._id || message.id;
+          const exists = current.some(m => (m._id || m.id) === msgId);
+          if (exists) return current;
+          return [...current, message];
+        });
+        if (message.senderId !== currentUser.id) {
           api.post(`/chat/read/${otherUserId}`).catch(() => {});
           socket.emit("direct:read", { otherUserId });
         }
@@ -200,8 +233,10 @@ export default function Chat() {
     };
 
     const handleDirectDelivered = ({ conversationId: id, recipientId }) => {
-      if (activeChat?.type === "direct" && conversationId(user.id, activeChat.id) === id) {
-        setMessages((current) => updateMessageStatus(current, (message) => message.senderId === user.id, (message) => ({
+      const currentActive = activeChatRef.current;
+      const currentUser = userRef.current;
+      if (currentActive?.type === "direct" && conversationId(currentUser?.id, currentActive.id) === id) {
+        setMessages((current) => updateMessageStatus(current, (message) => message.senderId === currentUser?.id, (message) => ({
           ...message,
           deliveredTo: Array.from(new Set([...(message.deliveredTo || []), recipientId]))
         })));
@@ -209,8 +244,10 @@ export default function Chat() {
     };
 
     const handleDirectRead = ({ conversationId: id, readerId }) => {
-      if (activeChat?.type === "direct" && conversationId(user.id, activeChat.id) === id) {
-        setMessages((current) => updateMessageStatus(current, (message) => message.senderId === user.id, (message) => ({
+      const currentActive = activeChatRef.current;
+      const currentUser = userRef.current;
+      if (currentActive?.type === "direct" && conversationId(currentUser?.id, currentActive.id) === id) {
+        setMessages((current) => updateMessageStatus(current, (message) => message.senderId === currentUser?.id, (message) => ({
           ...message,
           deliveredTo: Array.from(new Set([...(message.deliveredTo || []), readerId])),
           readBy: Array.from(new Set([...(message.readBy || []), readerId]))
@@ -220,22 +257,31 @@ export default function Chat() {
     };
 
     const handleProjectMessage = (message) => {
-      const isActive = activeChat?.type === "project" && activeChat.id === message.projectId;
+      const currentActive = activeChatRef.current;
+      const currentUser = userRef.current;
+      const isActive = currentActive?.type === "project" && currentActive.id === message.projectId;
       if (isActive) {
-        setMessages((current) => [...current, message]);
-      } else if (message.senderId !== user.id) {
+        setMessages((current) => {
+          const msgId = message._id || message.id;
+          const exists = current.some(m => (m._id || m.id) === msgId);
+          if (exists) return current;
+          return [...current, message];
+        });
+      } else if (message.senderId !== currentUser?.id) {
         setRooms((current) => current.map((room) => room.id === message.projectId ? { ...room, unreadCount: (room.unreadCount || 0) + 1 } : room));
       }
     };
 
     const handleDirectTyping = ({ fromUserId, userName, isTyping }) => {
-      if (activeChat?.type === "direct" && activeChat.id === fromUserId) {
+      const currentActive = activeChatRef.current;
+      if (currentActive?.type === "direct" && currentActive.id === fromUserId) {
         setTypingLabel(isTyping ? `${userName} is typing...` : "");
       }
     };
 
     const handleProjectTyping = ({ projectId, userName, isTyping }) => {
-      if (activeChat?.type === "project" && activeChat.id === projectId) {
+      const currentActive = activeChatRef.current;
+      if (currentActive?.type === "project" && currentActive.id === projectId) {
         setTypingLabel(isTyping ? `${userName} is typing in the room...` : "");
       }
     };
@@ -245,19 +291,40 @@ export default function Chat() {
     };
 
     const handleGroupMessage = (message) => {
-      const isActive = activeChat?.type === "group" && activeChat.id === message.groupId;
+      const currentActive = activeChatRef.current;
+      const currentUser = userRef.current;
+      const isActive = currentActive?.type === "group" && currentActive.id === message.groupId;
       if (isActive) {
-        setMessages((current) => [...current, message]);
-      } else if (message.senderId !== user.id) {
+        setMessages((current) => {
+          const msgId = message._id || message.id;
+          const exists = current.some(m => (m._id || m.id) === msgId);
+          if (exists) return current;
+          return [...current, message];
+        });
+      } else if (message.senderId !== currentUser?.id) {
         setGroups((current) => current.map((g) => g.id === message.groupId ? { ...g, unreadCount: (g.unreadCount || 0) + 1 } : g));
       }
     };
 
     const handleGroupTyping = ({ groupId, userName, isTyping }) => {
-      if (activeChat?.type === "group" && activeChat.id === groupId) {
+      const currentActive = activeChatRef.current;
+      if (currentActive?.type === "group" && currentActive.id === groupId) {
         setTypingLabel(isTyping ? `${userName} is typing...` : "");
       }
     };
+
+    const onReconnect = () => {
+      const currentActive = activeChatRef.current;
+      if (!currentActive) return;
+      if (currentActive.type === "direct") {
+        socket.emit("direct:join", { otherUserId: currentActive.id });
+      } else if (currentActive.type === "group") {
+        socket.emit("group:join", { groupId: currentActive.id });
+      } else {
+        socket.emit("project:join", { projectId: currentActive.id });
+      }
+    };
+
 
     socket.on("presence:update", handlePresence);
     socket.on("direct:message", handleDirectMessage);
@@ -271,6 +338,7 @@ export default function Chat() {
     socket.on("call:invite-response", refreshCalls);
     socket.on("call:missed", refreshCalls);
     socket.on("call:invite", refreshCalls);
+    socket.on("connect", onReconnect); // Handle re-joins on reconnect
 
     return () => {
       socket.off("presence:update", handlePresence);
@@ -285,6 +353,7 @@ export default function Chat() {
       socket.off("call:invite-response", refreshCalls);
       socket.off("call:missed", refreshCalls);
       socket.off("call:invite", refreshCalls);
+      socket.off("connect", onReconnect);
     };
   }, [activeChat, socket, user.id, user.name]);
 
@@ -436,7 +505,7 @@ export default function Chat() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
+    <div className="flex overflow-hidden bg-slate-50 dark:bg-slate-900" style={{ height: "calc(100dvh - 64px)" }}>
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -698,8 +767,8 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Chat Area - ensuring flex-grow and proper vertical distribution */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900">
         {activeItem ? (
           <>
             {/* Chat Header */}
