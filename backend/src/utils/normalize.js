@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 export function list(value) {
   if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
   return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);

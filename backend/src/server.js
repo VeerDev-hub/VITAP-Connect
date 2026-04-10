@@ -26,7 +26,14 @@ const server = http.createServer(app);
 const port = process.env.PORT || 5000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadDir = path.join(__dirname, "..", "uploads");
-const upload = multer({ dest: uploadDir, limits: { fileSize: 2 * 1024 * 1024 } });
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage, limits: { fileSize: 2 * 1024 * 1024 } });
 const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(",") : ["http://localhost:5173", "http://localhost:5174"];
 const io = new SocketServer(server, { cors: { origin: allowedOrigins, credentials: true } });
 
@@ -152,7 +159,15 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
-app.use("/uploads", express.static(uploadDir));
+
+// Smart Serving for extensionless legacy avatars
+app.use("/uploads", (req, res, next) => {
+  if (!path.extname(req.path)) {
+    res.setHeader("Content-Type", "image/jpeg");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+  }
+  next();
+}, express.static(uploadDir));
 
 // ── CSRF: validate Origin on mutating requests ────────────────────────────────
 app.use((req, res, next) => {
