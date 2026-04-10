@@ -1,22 +1,25 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { MessageSquare, ShieldAlert, Star, Users } from "lucide-react";
+import { FolderGit2, MessageSquare, ShieldAlert, Star, Users } from "lucide-react";
 import { api } from "../services/api";
 
 export default function Admin() {
   const [users, setUsers] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     try {
       setLoading(true);
-      const [usersRes, feedbacksRes] = await Promise.all([
+      const [usersRes, feedbacksRes, projectsRes] = await Promise.all([
         api.get("/admin/users"),
-        api.get("/feedback")
+        api.get("/feedback"),
+        api.get("/projects")
       ]);
       setUsers(usersRes.data.users);
       setFeedbacks(feedbacksRes.data.feedbacks);
+      setProjects(projectsRes.data.projects);
     } catch (error) {
       toast.error("Failed to load admin data");
     } finally {
@@ -30,6 +33,17 @@ export default function Admin() {
     load();
   }
 
+  async function deleteProject(projectId) {
+    if (!window.confirm("Are you sure you want to delete this project group? This will also wipe its chat history.")) return;
+    try {
+      await api.delete(`/projects/${projectId}`);
+      toast.success("Project removed");
+      load();
+    } catch (error) {
+      toast.error("Failed to delete project");
+    }
+  }
+
   useEffect(() => { load(); }, []);
 
   if (loading) return <div className="flex h-96 items-center justify-center font-display text-xl font-bold">Loading admin portal...</div>;
@@ -41,7 +55,7 @@ export default function Admin() {
           <ShieldAlert className="text-rose-500" size={32} />
           <h1 className="font-display text-4xl font-bold">Admin Portal</h1>
         </div>
-        <p className="mt-2 text-slate-600 dark:text-slate-400">Manage campus students and review community feedback.</p>
+        <p className="mt-2 text-slate-600 dark:text-slate-400">Manage campus students, projects, and review community feedback.</p>
       </div>
 
       {/* User Moderation Section */}
@@ -54,7 +68,8 @@ export default function Admin() {
           <table className="w-full text-left text-sm">
             <thead className="text-slate-500 font-bold uppercase tracking-wider">
               <tr className="border-b border-slate-200 dark:border-white/10">
-                <th className="p-4">Name</th>
+                <th className="p-4">Reg. No</th>
+                <th>Name</th>
                 <th>Email</th>
                 <th>Role</th>
                 <th>Status</th>
@@ -63,8 +78,18 @@ export default function Admin() {
             </thead>
             <tbody>
               {users.map((user) => (
-                <tr key={user.id} className="border-b border-slate-100 dark:border-white/5 last:border-0 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                  <td className="p-4 font-semibold">{user.name}</td>
+                <tr key={user.id} className="border-b border-slate-100 dark:border-white/5 last:border-0 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-slate-700 dark:text-slate-300">
+                  <td className="p-4 font-mono font-bold text-slate-500">{user.regNumber || "N/A"}</td>
+                  <td className="font-semibold py-4">
+                    <div className="flex items-center gap-3">
+                      <img 
+                        className="h-9 w-9 rounded-xl object-cover border border-slate-200 dark:border-white/10" 
+                        src={user.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`} 
+                        alt={user.name} 
+                      />
+                      <span className="text-slate-900 dark:text-white">{user.name}</span>
+                    </div>
+                  </td>
                   <td>{user.email}</td>
                   <td>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${user.role === "admin" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
@@ -83,6 +108,50 @@ export default function Admin() {
                       onClick={() => updateStatus(user.id, user.status === "blocked" ? "active" : "blocked")}
                     >
                       {user.status === "blocked" ? "Unblock" : "Block User"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Project Moderation Section */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <FolderGit2 className="text-blue-500" size={20} />
+          <h2 className="font-display text-2xl font-bold">Project Moderation</h2>
+        </div>
+        <div className="card overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-slate-500 font-bold uppercase tracking-wider">
+              <tr className="border-b border-slate-200 dark:border-white/10">
+                <th className="p-4">Type</th>
+                <th>Title</th>
+                <th>Owner</th>
+                <th>Members</th>
+                <th className="text-right p-4">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projects.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-slate-500">No project groups found.</td></tr>}
+              {projects.map((project) => (
+                <tr key={project.id} className="border-b border-slate-100 dark:border-white/5 last:border-0 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                  <td className="p-4">
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600 dark:bg-white/10 dark:text-slate-400">
+                      {project.type}
+                    </span>
+                  </td>
+                  <td className="font-semibold">{project.title}</td>
+                  <td className="text-slate-600 dark:text-slate-300">{project.ownerName}</td>
+                  <td className="text-slate-500">{project.members?.length || 0} students</td>
+                  <td className="text-right p-4">
+                    <button 
+                      className="rounded-full bg-rose-50 px-4 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-200" 
+                      onClick={() => deleteProject(project.id)}
+                    >
+                      Remove Group
                     </button>
                   </td>
                 </tr>

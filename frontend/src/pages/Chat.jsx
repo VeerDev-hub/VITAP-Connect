@@ -326,6 +326,10 @@ export default function Chat() {
     };
 
 
+    const handleMessageDeleted = ({ messageId }) => {
+      setMessages((current) => current.filter((m) => (m._id || m.id) !== messageId));
+    };
+
     socket.on("presence:update", handlePresence);
     socket.on("direct:message", handleDirectMessage);
     socket.on("direct:delivered", handleDirectDelivered);
@@ -335,6 +339,7 @@ export default function Chat() {
     socket.on("direct:typing", handleDirectTyping);
     socket.on("project:typing", handleProjectTyping);
     socket.on("group:typing", handleGroupTyping);
+    socket.on("chat:message_deleted", handleMessageDeleted);
     socket.on("call:invite-response", refreshCalls);
     socket.on("call:missed", refreshCalls);
     socket.on("call:invite", refreshCalls);
@@ -350,6 +355,7 @@ export default function Chat() {
       socket.off("direct:typing", handleDirectTyping);
       socket.off("project:typing", handleProjectTyping);
       socket.off("group:typing", handleGroupTyping);
+      socket.off("chat:message_deleted", handleMessageDeleted);
       socket.off("call:invite-response", refreshCalls);
       socket.off("call:missed", refreshCalls);
       socket.off("call:invite", refreshCalls);
@@ -568,11 +574,11 @@ export default function Chat() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
-                          <span className="text-slate-600 dark:text-slate-300 font-semibold">
-                            {conversation.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                        <img 
+                          className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-white/10" 
+                          src={conversation.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(conversation.name)}`} 
+                          alt={conversation.name} 
+                        />
                         {onlineUserIds.includes(conversation.id) && (
                           <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
                         )}
@@ -695,11 +701,11 @@ export default function Chat() {
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
-                      <span className="text-slate-600 dark:text-slate-300 font-semibold">
-                        {conversation.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                    <img 
+                      className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-white/10" 
+                      src={conversation.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(conversation.name)}`} 
+                      alt={conversation.name} 
+                    />
                     {onlineUserIds.includes(conversation.id) && (
                       <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
                     )}
@@ -782,13 +788,17 @@ export default function Chat() {
                 >
                   <ArrowLeft size={20} />
                 </button>
-                <div className="w-10 h-10 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
+                <div className="w-10 h-10 flex-shrink-0">
                   {activeChat?.type === "direct" ? (
-                    <span className="text-slate-600 dark:text-slate-300 font-semibold">
-                      {activeItem.name.charAt(0).toUpperCase()}
-                    </span>
+                    <img 
+                      className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10" 
+                      src={activeItem.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(activeItem.name)}`} 
+                      alt={activeItem.name} 
+                    />
                   ) : (
-                    <Users size={20} className="text-slate-600 dark:text-slate-300" />
+                    <div className="w-10 h-10 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
+                      <Users size={20} className="text-slate-600 dark:text-slate-300" />
+                    </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -867,11 +877,11 @@ export default function Chat() {
                 return (
                   <div key={`${message.createdAt}-${index}`} className={`flex gap-2 px-2 group ${mine ? "justify-end" : "justify-start"}`}>
                     {!mine && showAvatar && (
-                      <div className="w-8 h-8 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                        <span className="text-xs text-slate-600 dark:text-slate-300 font-semibold">
-                          {message.senderName.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                      <img 
+                        className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/10 mt-1 flex-shrink-0" 
+                        src={message.senderAvatar || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(message.senderName)}`} 
+                        alt={message.senderName} 
+                      />
                     )}
                     {!mine && !showAvatar && <div className="w-8"></div>}
                     <div className={`max-w-[85%] sm:max-w-xs md:max-w-sm lg:max-w-md ${mine ? "order-1" : "order-2"}`}>
@@ -891,8 +901,8 @@ export default function Chat() {
                         </p>
                       )}
                       <div className="flex items-end gap-1">
-                        {/* Delete button — only for own messages, shown on hover */}
-                        {mine && msgId && activeChat?.type === "direct" && (
+                        {/* Delete button — for own messages or admin, shown on hover */}
+                        {msgId && (mine || user.role === "admin") && (
                           <button
                             type="button"
                             title="Delete message"

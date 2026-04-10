@@ -118,7 +118,12 @@ export default function Projects() {
         </div>
       </div>
       <form className="card mt-8 grid gap-4 md:grid-cols-4" onSubmit={handleSubmit(create)}>
-        <select className="input" {...register("type")}><option>Project</option><option>Hackathon</option></select>
+        <select className="input" {...register("type")}>
+          <option>Project</option>
+          <option>Hackathon</option>
+          <option>Capstone</option>
+          <option>ECS</option>
+        </select>
         <input className="input" placeholder="Title" {...register("title", { required: true })} />
         <input className="input" placeholder="Required skills" {...register("skills")} />
         <input className="input" type="date" placeholder="Deadline" {...register("deadline")} />

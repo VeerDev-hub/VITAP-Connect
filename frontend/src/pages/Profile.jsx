@@ -38,6 +38,7 @@ export default function Profile() {
       <form className="card mt-8 grid gap-5 md:grid-cols-[0.7fr_1.3fr]" onSubmit={handleSubmit(onSubmit)}>
         <div>
           <img className="h-40 w-40 rounded-[2rem] object-cover" src={user.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`} alt={user.name} />
+          {user.regNumber && <p className="mt-3 text-center font-bold text-slate-500 tracking-wider font-mono">{user.regNumber}</p>}
           <input className="input mt-4" type="file" accept="image/*" onChange={(event) => setAvatar(event.target.files[0])} />
           <button className="btn-secondary mt-3 w-full" type="button" onClick={uploadAvatar}>Upload image</button>
           {user.avatarUrl && <button className="mt-3 w-full rounded-full border border-rose-200 bg-rose-50 px-5 py-3 font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200" type="button" onClick={removeAvatar}>Remove avatar</button>}

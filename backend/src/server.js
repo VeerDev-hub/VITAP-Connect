@@ -660,9 +660,8 @@ app.patch("/users/me", requireAuth, async (req, res, next) => {
 
 app.post("/users/me/avatar", requireAuth, upload.single("avatar"), async (req, res, next) => {
   try {
-    const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get("host")}`;
-    const avatarUrl = `${baseUrl}/uploads/${req.file.filename}`;
-    await runQuery("MATCH (s:Student {id: $id}) SET s.avatarUrl = $avatarUrl", { id: req.user.id, avatarUrl });
+    const filename = req.file.filename;
+    await runQuery("MATCH (s:Student {id: $id}) SET s.avatarUrl = $filename", { id: req.user.id, filename });
     res.json({ user: await getStudentById(req.user.id) });
   } catch (error) {
     next(error);
@@ -958,7 +957,13 @@ app.delete("/projects/:id", requireAuth, async (req, res, next) => {
       DETACH DELETE p
       RETURN count(p) AS deleted
     `, { userId: req.user.id, projectId: req.params.id });
-    if (!integer(result.records[0].get("deleted"))) return res.status(403).json({ message: "Only the project owner can delete this project" });
+    if (!integer(result.records[0].get("deleted")) && req.user.role !== "admin") {
+      return res.status(403).json({ message: "Only the project owner or an admin can delete this project" });
+    }
+    // Admin bypass delete (if not deleted by owner match above)
+    if (req.user.role === "admin" && !integer(result.records[0].get("deleted"))) {
+      await runQuery("MATCH (p:Project {id: $id}) DETACH DELETE p", { id: req.params.id });
+    }
     if (await mongoReady) await ChatMessage.deleteMany({ projectId: req.params.id });
     res.json({ message: "Project deleted" });
   } catch (error) {
@@ -1190,14 +1195,26 @@ app.post("/chat/read/:userId", requireAuth, async (req, res, next) => {
 app.delete("/chat/messages/:messageId", requireAuth, async (req, res, next) => {
   try {
     if (!(await mongoReady)) return res.status(503).json({ message: "Chat unavailable" });
-    const message = await DirectMessage.findById(req.params.messageId);
+    // Try DirectMessage first
+    let message = await DirectMessage.findById(req.params.messageId);
+    let Model = DirectMessage;
+    
+    if (!message) {
+      message = await ChatMessage.findById(req.params.messageId);
+      Model = ChatMessage;
+    }
+
     if (!message) return res.status(404).json({ message: "Message not found" });
-    if (message.senderId !== req.user.id) return res.status(403).json({ message: "You can only delete your own messages" });
-    await DirectMessage.deleteOne({ _id: req.params.messageId });
+    if (message.senderId !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ message: "You can only delete your own messages" });
+    }
+
+    await Model.deleteOne({ _id: req.params.messageId });
+    const roomId = message.groupId ? `group:${message.groupId}` : `user:${message.senderId === req.user.id ? message.recipientId : message.senderId}`;
+    io.to(roomId).emit("chat:message_deleted", { messageId: req.params.messageId });
+    
     res.json({ message: "Message deleted" });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 });
 
 app.get("/analytics/summary", requireAuth, async (req, res, next) => {

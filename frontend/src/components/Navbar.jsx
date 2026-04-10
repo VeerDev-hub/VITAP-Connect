@@ -42,10 +42,19 @@ export default function Navbar({ darkMode, setDarkMode }) {
             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           {user ? (
-            <>
-              <Link className="btn-secondary hidden sm:inline-flex" to="/profile">Profile</Link>
-              <button className="btn-primary" onClick={() => { logout(); navigate("/login"); }}>Logout</button>
-            </>
+            <div className="flex items-center gap-3">
+              <Link className="flex items-center gap-2 group transition-all" to="/profile">
+                <img 
+                  className="h-9 w-9 rounded-full object-cover border-2 border-slate-200 dark:border-white/10 group-hover:border-blue-500 transition-colors" 
+                  src={user.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`} 
+                  alt={user.name} 
+                />
+                <span className="hidden md:inline font-semibold text-slate-700 dark:text-slate-200 group-hover:text-blue-500 transition-colors">
+                  {user.name.split(" ")[0]}
+                </span>
+              </Link>
+              <button className="btn-primary !px-5" onClick={() => { logout(); navigate("/login"); }}>Logout</button>
+            </div>
           ) : (
             <>
               <Link className="btn-secondary hidden sm:inline-flex" to="/login">Login</Link>

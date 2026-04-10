@@ -27,6 +27,7 @@ export default memo(function StudentCard({ student, actionLabel = "Connect", onA
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-display text-xl font-bold">{student.name}</h3>
+            {student.regNumber && <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-bold text-slate-500 dark:bg-white/10">{student.regNumber}</span>}
             {status && <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${status[2]}`}><StatusIcon size={14} /> {status[0]}</span>}
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">{student.department} - Year {student.year}{student.graduationYear ? ` - Grad ${student.graduationYear}` : ""}</p>
