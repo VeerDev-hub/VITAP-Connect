@@ -428,7 +428,7 @@ app.post("/feedback", requireAuth, async (req, res, next) => {
   }
 });
 
-app.get("/feedback", requireAdmin, async (req, res, next) => {
+app.get("/feedback", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     if (!(await mongoReady)) return res.status(503).json({ message: "Database not ready" });
     const feedbacks = await Feedback.find().sort({ createdAt: -1 }).lean();
