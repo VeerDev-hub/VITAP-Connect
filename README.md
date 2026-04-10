@@ -116,5 +116,5 @@ We welcome contributions from fellow VIT-APians!
 
 ---
 
-### 👨‍💻 Developed by the VIT-AP Community
+### 👨‍💻 Developed by Veer Pratap Singh
 Built with ❤️ for a more connected campus.
