@@ -1,4 +1,4 @@
-﻿import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Menu, Moon, Sun, X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
@@ -47,22 +47,35 @@ export default function Navbar({ darkMode, setDarkMode }) {
               <button className="btn-primary" onClick={() => { logout(); navigate("/login"); }}>Logout</button>
             </>
           ) : (
-            <Link className="btn-primary" to="/login">Login</Link>
+            <>
+              <Link className="btn-secondary hidden sm:inline-flex" to="/login">Login</Link>
+              <Link className="btn-primary" to="/register">Sign up</Link>
+            </>
           )}
         </div>
       </nav>
-      {user && mobileMenuOpen && (
+      {mobileMenuOpen && (
         <div className="lg:hidden border-t border-slate-200 bg-white/90 px-4 py-4 shadow-sm dark:border-white/10 dark:bg-slate-950/90">
           <div className="flex flex-col gap-2">
-            {links.map(([label, href]) => (
-              <NavLink key={href} to={href} className={({ isActive }) => `rounded-full px-4 py-3 text-sm font-semibold ${isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"}`} onClick={() => setMobileMenuOpen(false)}>
-                {label}
-              </NavLink>
-            ))}
-            {user?.role === "admin" && (
-              <NavLink to="/admin" className={({ isActive }) => `rounded-full px-4 py-3 text-sm font-semibold ${isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"}`} onClick={() => setMobileMenuOpen(false)}>
-                Admin
-              </NavLink>
+            {user ? (
+              <>
+                {links.map(([label, href]) => (
+                  <NavLink key={href} to={href} className={({ isActive }) => `rounded-full px-4 py-3 text-sm font-semibold ${isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"}`} onClick={() => setMobileMenuOpen(false)}>
+                    {label}
+                  </NavLink>
+                ))}
+                {user.role === "admin" && (
+                  <NavLink to="/admin" className={({ isActive }) => `rounded-full px-4 py-3 text-sm font-semibold ${isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"}`} onClick={() => setMobileMenuOpen(false)}>
+                    Admin
+                  </NavLink>
+                )}
+                <Link to="/profile" className="rounded-full px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="rounded-full px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                <Link to="/register" className="btn-primary text-center" onClick={() => setMobileMenuOpen(false)}>Create Account</Link>
+              </>
             )}
           </div>
         </div>

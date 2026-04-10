@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { ShieldCheck, Sparkles } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -21,6 +21,8 @@ export default function Auth({ mode }) {
   const [verifiedEmail, setVerifiedEmail] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Step-1 form (email only)
   const {
@@ -215,13 +217,23 @@ export default function Auth({ mode }) {
 
                 <div>
                   <label htmlFor="reg-password" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Password</label>
-                  <input id="reg-password" className="input" type="password" placeholder="Min 8 characters" {...field("password", { required: "Password is required", minLength: { value: 8, message: "Use at least 8 characters" }, maxLength: { value: 32, message: "Maximum 32 characters" } })} />
+                  <div className="relative">
+                    <input id="reg-password" title="Min 8 characters, must match confirm password" className="input pr-10" type={showPassword ? "text" : "password"} placeholder="Min 8 characters" {...field("password", { required: "Password is required", minLength: { value: 8, message: "Use at least 8 characters" }, maxLength: { value: 32, message: "Maximum 32 characters" } })} />
+                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                   {password && <PasswordStrength password={password} />}
                 </div>
 
                 <div>
                   <label htmlFor="reg-confirm" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Confirm Password</label>
-                  <input id="reg-confirm" className="input" type="password" placeholder="Re-enter password" {...field("confirmPassword", { validate: (v) => v === password || "Passwords do not match" })} />
+                  <div className="relative">
+                    <input id="reg-confirm" className="input pr-10" type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter password" {...field("confirmPassword", { validate: (v) => v === password || "Passwords do not match" })} />
+                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                   {errors.confirmPassword && <p className="text-xs font-semibold text-rose-500 mt-1">{errors.confirmPassword.message}</p>}
                 </div>
 
@@ -297,7 +309,12 @@ export default function Auth({ mode }) {
               <p className="mt-2 text-sm text-slate-500">Login with your registered VIT-AP email and password.</p>
             </div>
             <input className="input" type="email" placeholder={`name${collegeDomain}`} {...field("email", { required: "Email is required" })} />
-            <input className="input" type="password" placeholder="Password" {...field("password", { required: "Password is required", minLength: { value: 6, message: "Use at least 6 characters" } })} />
+            <div className="relative">
+              <input className="input pr-10" type={showPassword ? "text" : "password"} placeholder="Password" {...field("password", { required: "Password is required", minLength: { value: 6, message: "Use at least 6 characters" } })} />
+              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" onClick={() => setShowPassword(!showPassword)}>
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {(errors.email || errors.password) && (
               <p className="text-sm font-semibold text-rose-600">{errors.email?.message || errors.password?.message}</p>
             )}

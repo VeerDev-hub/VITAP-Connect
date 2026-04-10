@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Bell, BrainCircuit, CheckCircle2, Compass, Network, Search, ShieldCheck, Sparkles, Upload, Users } from "lucide-react";
 import GraphShowcase from "../components/GraphShowcase";
+import { useAuth } from "../context/AuthContext";
 
 
 const fadeUp = {
@@ -50,6 +51,7 @@ function Reveal({ children, className = "" }) {
 }
 
 export default function Home() {
+  const { user } = useAuth();
   return (
     <section className="relative overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-20 lg:min-h-[86vh] flex items-center">
@@ -64,8 +66,14 @@ export default function Home() {
             VITAP Connect helps VITAP University students find study partners, form project teams, and build lasting academic relationships through shared interests and goals.
           </motion.p>
           <motion.div variants={fadeUp} className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link className="btn-primary inline-flex items-center gap-2" to="/register">Start connecting <ArrowRight size={18} /></Link>
-            <Link className="btn-secondary" to="/login">Login</Link>
+            {user ? (
+              <Link className="btn-primary inline-flex items-center gap-2" to="/dashboard">Go to Dashboard <ArrowRight size={18} /></Link>
+            ) : (
+              <>
+                <Link className="btn-primary inline-flex items-center gap-2" to="/register">Start connecting <ArrowRight size={18} /></Link>
+                <Link className="btn-secondary px-8" to="/login">Login</Link>
+              </>
+            )}
           </motion.div>
           <motion.div variants={fadeUp} className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-3">
             {stats.map(([value, label]) => (

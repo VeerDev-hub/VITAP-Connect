@@ -23,7 +23,7 @@ export default memo(function StudentCard({ student, actionLabel = "Connect", onA
       }}
     >
       <div className="flex items-start gap-4">
-        <img loading="lazy" className="h-14 w-14 rounded-2xl object-cover" src={student.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${student.name}`} alt={student.name} />
+        <img loading="lazy" className="h-14 w-14 rounded-2xl object-cover" src={student.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(student.name)}`} alt={student.name} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-display text-xl font-bold">{student.name}</h3>
