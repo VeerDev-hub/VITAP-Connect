@@ -4,6 +4,7 @@ import { Bell, CheckCircle2, FolderKanban, MessageSquare, Sparkles, UserCheck, U
 import toast from "react-hot-toast";
 import { api } from "../services/api";
 import StudentCard from "../components/StudentCard";
+import DashboardWidgets from "../components/DashboardWidgets";
 import { useAuth } from "../context/AuthContext";
 
 function profileCompletion(user) {
@@ -66,6 +67,10 @@ export default function Dashboard() {
             Give Feedback
           </Link>
         </div>
+      </div>
+
+      <div className="mt-8">
+        <DashboardWidgets />
       </div>
 
       <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">

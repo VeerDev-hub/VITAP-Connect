@@ -1,4 +1,4 @@
-﻿@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -25,6 +25,10 @@
 
   .input {
     @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-slate-800;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    @apply dark:invert;
   }
 
   .tag {
