@@ -1,11 +1,10 @@
 import { Link } from "react-router-dom";
-import { Github, GraduationCap, Network, Linkedin } from "lucide-react";
+import { Github, Linkedin } from "lucide-react";
 
 const links = [
   ["Dashboard", "/dashboard"],
   ["Discover", "/discover"],
-  ["Collaborations", "/collaborations"],
-  ["Admin", "/admin"]
+  ["Collaborations", "/collaborations"]
 ];
 
 export default function Footer() {
@@ -26,8 +25,6 @@ export default function Footer() {
             <a href="https://www.linkedin.com/in/veer-pratap-singh-99a368310/" className="rounded-2xl border border-slate-200 p-3 transition hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5" target="_blank" rel="noopener noreferrer">
               <Linkedin size={18} />
             </a>
-            <div className="rounded-2xl border border-slate-200 p-3 dark:border-white/10"><Network size={18} /></div>
-            <div className="rounded-2xl border border-slate-200 p-3 dark:border-white/10"><GraduationCap size={18} /></div>
           </div>
         </div>
 
