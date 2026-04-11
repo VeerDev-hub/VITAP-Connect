@@ -484,48 +484,36 @@ app.post("/auth/send-register-otp", apiLimiter, async (req, res, next) => {
     await runQuery("MATCH (ot:RegOtpToken {email: $email}) DELETE ot", { email });
     await runQuery("CREATE (ot:RegOtpToken {email: $email, otp: $otp, expiresAt: $expiresAt})", { email, otp, expiresAt });
 
-    if (!process.env.RESEND_API_KEY) {
-      console.error("Missing RESEND_API_KEY in environment variables");
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error("Missing EMAIL_USER or EMAIL_PASS in environment variables");
       return res.status(500).json({ message: "Server email configuration is missing. Cannot send OTP." });
     }
 
+    const nodemailer = await import("nodemailer");
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+    
     try {
-      const resendRes = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          from: "VITAP Connect <onboarding@resend.dev>",
-          to: email,
-          subject: 'Verify your email – VITAP Connect',
-          html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
-              <h2 style="color:#6366f1;margin-bottom:8px">VITAP Connect</h2>
-              <h3 style="margin-bottom:16px">Verify your email address</h3>
-              <p style="color:#475569">Use this one-time code to complete your registration. It expires in <strong>10 minutes</strong>.</p>
-              <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#f1f5f9;border-radius:8px;color:#1e293b;margin:24px 0">${otp}</div>
-              <p style="color:#94a3b8;font-size:13px">If you did not attempt to register on VITAP Connect, please ignore this email.</p>
-            </div>
-          `
-        })
+      await transporter.sendMail({
+        from: `"VITAP Connect" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Verify your email – VITAP Connect',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+            <h2 style="color:#6366f1;margin-bottom:8px">VITAP Connect</h2>
+            <h3 style="margin-bottom:16px">Verify your email address</h3>
+            <p style="color:#475569">Use this one-time code to complete your registration. It expires in <strong>10 minutes</strong>.</p>
+            <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#f1f5f9;border-radius:8px;color:#1e293b;margin:24px 0">${otp}</div>
+            <p style="color:#94a3b8;font-size:13px">If you did not attempt to register on VITAP Connect, please ignore this email.</p>
+          </div>
+        `
       });
-
-      if (!resendRes.ok) {
-        const errData = await resendRes.json();
-        console.warn("Resend Sandbox Mode - Email Suppressed:", errData.message);
-        console.log(`\n================================`);
-        console.log(`🚀 DEMO MODE OTP: ${otp}`);
-        console.log(`================================\n`);
-        // Continue to Step 2 instead of crashing
-        return res.json({ message: "OTP printed to console for demo mode" });
-      }
-
       res.json({ message: "OTP sent to your email" });
-    } catch (apiError) {
-      console.error("Fetch Error:", apiError);
-      return res.status(500).json({ message: "Failed to connect to email service." });
+    } catch (mailError) {
+      console.error("Nodemailer Error:", mailError);
+      return res.status(500).json({ message: "Failed to deliver email: " + mailError.message });
     }
   } catch (error) {
     next(error);
@@ -618,48 +606,36 @@ app.post("/auth/forgot-password", async (req, res, next) => {
     await runQuery("MATCH (ot:OtpToken {email: $email}) DELETE ot", { email });
     await runQuery("CREATE (ot:OtpToken {email: $email, otp: $otp, expiresAt: $expiresAt})", { email, otp, expiresAt });
 
-    if (!process.env.RESEND_API_KEY) {
-      console.error("Missing RESEND_API_KEY in environment variables");
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error("Missing EMAIL_USER or EMAIL_PASS in environment variables");
       return res.status(500).json({ message: "Server email configuration is missing. Cannot send OTP." });
     }
 
+    const nodemailer = await import("nodemailer");
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+    
     try {
-      const resendRes = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          from: "VITAP Connect <onboarding@resend.dev>",
-          to: email,
-          subject: 'Your Password Reset OTP – VITAP Connect',
-          html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
-              <h2 style="color:#6366f1;margin-bottom:8px">VITAP Connect</h2>
-              <h3 style="margin-bottom:16px">Password Reset OTP</h3>
-              <p style="color:#475569">Use the following one-time password to reset your account password. It expires in <strong>10 minutes</strong>.</p>
-              <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#f1f5f9;border-radius:8px;color:#1e293b;margin:24px 0">${otp}</div>
-              <p style="color:#94a3b8;font-size:13px">If you did not request a password reset, you can safely ignore this email.</p>
-            </div>
-          `
-        })
+      await transporter.sendMail({
+        from: `"VITAP Connect" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Your Password Reset OTP – VITAP Connect',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+            <h2 style="color:#6366f1;margin-bottom:8px">VITAP Connect</h2>
+            <h3 style="margin-bottom:16px">Password Reset OTP</h3>
+            <p style="color:#475569">Use the following one-time password to reset your account password. It expires in <strong>10 minutes</strong>.</p>
+            <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#f1f5f9;border-radius:8px;color:#1e293b;margin:24px 0">${otp}</div>
+            <p style="color:#94a3b8;font-size:13px">If you did not request a password reset, you can safely ignore this email.</p>
+          </div>
+        `
       });
-
-      if (!resendRes.ok) {
-        const errData = await resendRes.json();
-        console.warn("Resend Sandbox Reset - Email Suppressed:", errData.message);
-        console.log(`\n================================`);
-        console.log(`🔑 DEMO MODE RESET OTP: ${otp}`);
-        console.log(`================================\n`);
-        // Continue to verify step
-        return res.json({ message: "OTP printed to console for demo mode" });
-      }
-
       res.json({ message: "OTP sent to your email" });
-    } catch (apiError) {
-      console.error("Fetch Reset Error:", apiError);
-      return res.status(500).json({ message: "Failed to connect to email service." });
+    } catch (mailError) {
+      console.error("Nodemailer Reset Error:", mailError);
+      return res.status(500).json({ message: "Failed to deliver email: " + mailError.message });
     }
   } catch (error) {
     next(error);
