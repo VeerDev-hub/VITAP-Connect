@@ -160,14 +160,30 @@ app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// Smart Serving for extensionless legacy avatars
-app.use("/uploads", (req, res, next) => {
-  if (!path.extname(req.path)) {
-    res.setHeader("Content-Type", "image/jpeg");
-    res.setHeader("X-Content-Type-Options", "nosniff");
+// Smart Serving for both legacy (extensionless) and new avatars
+app.use("/uploads", cors({ origin: allowedOrigins, credentials: true }), express.static(uploadDir, {
+  setHeaders: (res, filePath) => {
+    // If the file has no extension, or is a common image type, force the header
+    const ext = path.extname(filePath).toLowerCase();
+    if (!ext || [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"].includes(ext)) {
+      res.setHeader("Content-Type", ext === ".png" ? "image/png" : 
+                    ext === ".svg" ? "image/svg+xml" : 
+                    ext === ".webp" ? "image/webp" : "image/jpeg");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+    }
   }
-  next();
-}, express.static(uploadDir));
+}));
+
+app.get("/auth/debug", requireAuth, (req, res) => {
+  res.json({ 
+    user: req.user,
+    env: {
+      API_BASE_URL: process.env.API_BASE_URL,
+      NODE_ENV: process.env.NODE_ENV
+    }
+  });
+});
 
 // ── CSRF: validate Origin on mutating requests ────────────────────────────────
 app.use((req, res, next) => {
@@ -468,6 +484,11 @@ app.post("/auth/send-register-otp", apiLimiter, async (req, res, next) => {
     await runQuery("MATCH (ot:RegOtpToken {email: $email}) DELETE ot", { email });
     await runQuery("CREATE (ot:RegOtpToken {email: $email, otp: $otp, expiresAt: $expiresAt})", { email, otp, expiresAt });
 
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error("Missing EMAIL_USER or EMAIL_PASS in environment variables");
+      return res.status(500).json({ message: "Server email configuration is missing. Cannot send OTP." });
+    }
+
     const nodemailer = await import("nodemailer");
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -578,6 +599,11 @@ app.post("/auth/forgot-password", async (req, res, next) => {
     // Delete any existing OTPs for this email, then store new one
     await runQuery("MATCH (ot:OtpToken {email: $email}) DELETE ot", { email });
     await runQuery("CREATE (ot:OtpToken {email: $email, otp: $otp, expiresAt: $expiresAt})", { email, otp, expiresAt });
+
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error("Missing EMAIL_USER or EMAIL_PASS in environment variables");
+      return res.status(500).json({ message: "Server email configuration is missing. Cannot send OTP." });
+    }
 
     const nodemailer = await import("nodemailer");
     const transporter = nodemailer.createTransport({
