@@ -514,10 +514,12 @@ app.post("/auth/send-register-otp", apiLimiter, async (req, res, next) => {
 
       if (!resendRes.ok) {
         const errData = await resendRes.json();
-        console.error("Resend API Error:", errData);
-        // Fallback demo string for testing without a domain
-        console.log(`\n--- DEMO MODE OTP: ${otp} ---\n`);
-        return res.status(500).json({ message: errData.message || "Failed to deliver email" });
+        console.warn("Resend Sandbox Mode - Email Suppressed:", errData.message);
+        console.log(`\n================================`);
+        console.log(`🚀 DEMO MODE OTP: ${otp}`);
+        console.log(`================================\n`);
+        // Continue to Step 2 instead of crashing
+        return res.json({ message: "OTP printed to console for demo mode" });
       }
 
       res.json({ message: "OTP sent to your email" });
@@ -646,9 +648,12 @@ app.post("/auth/forgot-password", async (req, res, next) => {
 
       if (!resendRes.ok) {
         const errData = await resendRes.json();
-        console.error("Resend Reset API Error:", errData);
-        console.log(`\n--- DEMO MODE RESET OTP: ${otp} ---\n`);
-        return res.status(500).json({ message: errData.message || "Failed to deliver reset email." });
+        console.warn("Resend Sandbox Reset - Email Suppressed:", errData.message);
+        console.log(`\n================================`);
+        console.log(`🔑 DEMO MODE RESET OTP: ${otp}`);
+        console.log(`================================\n`);
+        // Continue to verify step
+        return res.json({ message: "OTP printed to console for demo mode" });
       }
 
       res.json({ message: "OTP sent to your email" });
