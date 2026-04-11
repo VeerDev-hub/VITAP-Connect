@@ -1,4 +1,4 @@
-﻿import bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { closeDriver, initSchema, readQuery, runQuery } from "../src/db.js";
 
@@ -105,16 +105,8 @@ const projects = [
 
 try {
   await initSchema();
-  await runQuery(`
-    MATCH (s:Student)
-    WHERE coalesce(s.role, "student") <> "admin"
-    DETACH DELETE s
-  `);
-  await runQuery(`
-    MATCH (n)
-    WHERE NOT n:Student
-    DETACH DELETE n
-  `);
+  // Removed destructive global deletes to prevent data loss.
+  // MERGE will be used below to update or create students without wiping others.
 
   for (const student of students) {
     await runQuery(`

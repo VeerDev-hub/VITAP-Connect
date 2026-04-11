@@ -758,14 +758,23 @@ app.get("/users/search", requireAuth, async (req, res, next) => {
       ORDER BY student.name
     `, { id: req.user.id });
     const users = result.records.map((record) => studentFromRecord(record));
+    console.log(`[Search] Found ${users.length} raw users for ID: ${req.user.id}`);
+    
     const filtered = users.filter((user) => {
-      const q = String(req.query.q || "").toLowerCase();
-      const skill = String(req.query.skill || "").toLowerCase();
-      const department = String(req.query.department || "").toLowerCase();
+      const q = String(req.query.q || "").toLowerCase().trim();
+      const skill = String(req.query.skill || "").toLowerCase().trim();
+      const department = String(req.query.department || "").toLowerCase().trim();
       const year = String(req.query.year || "");
+      
       const matchesQ = !q || user.name?.toLowerCase().includes(q) || user.regNumber?.toLowerCase().includes(q);
-      return matchesQ && (!skill || user.skills?.some((item) => item.toLowerCase().includes(skill))) && (!department || user.department?.toLowerCase().includes(department)) && (!year || String(user.year) === year);
+      const matchesSkill = !skill || (user.skills && user.skills.some(s => s.toLowerCase().includes(skill)));
+      const matchesDept = !department || user.department?.toLowerCase().includes(department);
+      const matchesYear = !year || String(user.year) === year;
+      
+      return matchesQ && matchesSkill && matchesDept && matchesYear;
     });
+    
+    console.log(`[Search] Returning ${filtered.length} filtered users.`);
     res.json({ users: filtered });
   } catch (error) {
     next(error);
