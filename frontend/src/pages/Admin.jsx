@@ -64,7 +64,8 @@ export default function Admin() {
           <Users className="text-indigo-500" size={20} />
           <h2 className="font-display text-2xl font-bold">Student Moderation</h2>
         </div>
-        <div className="card overflow-x-auto">
+        {/* Desktop View Table */}
+        <div className="hidden md:block card overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-slate-500 font-bold uppercase tracking-wider">
               <tr className="border-b border-slate-200 dark:border-white/10">
@@ -115,6 +116,49 @@ export default function Admin() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile View Cards */}
+        <div className="md:hidden space-y-4">
+          {users.map((user) => (
+            <div key={user.id} className="card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <img 
+                    className="h-10 w-10 rounded-xl object-cover border border-slate-200 dark:border-white/10" 
+                    src={user.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`} 
+                    alt={user.name} 
+                  />
+                  <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white leading-tight">{user.name}</h3>
+                    <p className="text-[10px] font-mono font-bold text-slate-500 uppercase">{user.regNumber || "No Reg. No"}</p>
+                  </div>
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${user.role === "admin" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                  {user.role}
+                </span>
+              </div>
+              <div className="space-y-2 py-3 border-y border-slate-100 dark:border-white/5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400 font-medium">Email</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-semibold">{user.email}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400 font-medium">Status</span>
+                  <span className={`inline-flex items-center gap-1.5 font-bold ${user.status === "blocked" ? "text-rose-500" : "text-emerald-500"}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${user.status === "blocked" ? "bg-rose-500" : "bg-emerald-500"}`} />
+                    {user.status || "active"}
+                  </span>
+                </div>
+              </div>
+              <button 
+                className={`w-full mt-3 rounded-xl py-2.5 text-xs font-bold transition shadow-sm ${user.status === "blocked" ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-rose-50 text-rose-600 hover:bg-rose-100"}`} 
+                onClick={() => updateStatus(user.id, user.status === "blocked" ? "active" : "blocked")}
+              >
+                {user.status === "blocked" ? "Unblock User" : "Restrict User Access"}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Collaboration Moderation Section */}
@@ -123,7 +167,8 @@ export default function Admin() {
           <FolderGit2 className="text-blue-500" size={20} />
           <h2 className="font-display text-2xl font-bold">Collaboration Moderation</h2>
         </div>
-        <div className="card overflow-x-auto">
+        {/* Desktop View Table */}
+        <div className="hidden md:block card overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-slate-500 font-bold uppercase tracking-wider">
               <tr className="border-b border-slate-200 dark:border-white/10">
@@ -158,6 +203,29 @@ export default function Admin() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View Cards */}
+        <div className="md:hidden space-y-4">
+          {projects.length === 0 && <p className="card p-8 text-center text-slate-500 text-sm italic">No active collaborations to manage.</p>}
+          {projects.map((project) => (
+            <div key={project.id} className="card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600 dark:bg-white/10 dark:text-slate-400">
+                  {project.type}
+                </span>
+                <span className="text-[10px] font-bold text-slate-400">{project.members?.length || 0} members</span>
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-lg">{project.title}</h3>
+              <p className="text-xs text-slate-500 mt-1 mb-4">Lead by {project.ownerName}</p>
+              <button 
+                className="w-full rounded-xl bg-rose-50 py-2.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-200 border border-transparent hover:border-rose-200 dark:hover:border-rose-500/30" 
+                onClick={() => deleteProject(project.id)}
+              >
+                Terminate Collaboration
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
