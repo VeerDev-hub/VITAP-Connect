@@ -1,10 +1,10 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Github, GraduationCap, Network, Linkedin } from "lucide-react";
 
 const links = [
   ["Dashboard", "/dashboard"],
   ["Discover", "/discover"],
-  ["Projects", "/projects"],
+  ["Collaborations", "/collaborations"],
   ["Admin", "/admin"]
 ];
 

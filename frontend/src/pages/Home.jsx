@@ -56,7 +56,7 @@ export default function Home() {
     <section className="relative overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
       <div className="mx-auto max-w-7xl px-4 pb-16 pt-20 lg:min-h-[86vh] flex items-center">
         <motion.div variants={stagger} initial="hidden" animate="visible" className="mx-auto max-w-4xl text-center">
-          <motion.div variants={fadeUp} className="mx-auto inline-flex items-center gap-2 rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+          <motion.div variants={fadeUp} className="mx-auto inline-flex items-center gap-2 rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
             <Sparkles size={16} /> VITAP University Community
           </motion.div>
           <motion.h1 variants={fadeUp} className="mt-6 font-display text-5xl font-bold leading-tight tracking-tight md:text-7xl">
@@ -77,7 +77,7 @@ export default function Home() {
           </motion.div>
           <motion.div variants={fadeUp} className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-3">
             {stats.map(([value, label]) => (
-              <div key={label} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <div key={label} className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
                 <p className="font-display text-3xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
                 <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{label}</p>
               </div>
@@ -115,9 +115,9 @@ export default function Home() {
         <div className="mt-12 grid gap-6 lg:grid-cols-4">
           {journey.map(([title, text, Icon], index) => (
             <Reveal key={title}>
-              <div className="relative h-full rounded-[2rem] border border-slate-200 bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-900/80">
+              <div className="relative h-full rounded-[2rem] border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-slate-900/80">
                 <div className="flex items-center justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white">
                     <Icon />
                   </div>
                   <span className="font-display text-5xl font-bold text-slate-900 dark:text-white/10">0{index + 1}</span>
@@ -131,7 +131,7 @@ export default function Home() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-16">
-        <div className="grid items-center gap-8 rounded-[2.5rem] border border-white/70 bg-slate-950 p-6 shadow-soft md:p-10 lg:grid-cols-[0.9fr_1.1fr] dark:border-white/10">
+        <div className="grid items-center gap-8 rounded-[2.5rem] border border-white/70 bg-slate-950 p-6 md:p-10 lg:grid-cols-[0.9fr_1.1fr] dark:border-white/10">
           <Reveal>
             <span className="rounded-full bg-slate-800/90 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-100">Dashboard preview</span>
             <h2 className="mt-5 font-display text-4xl font-bold text-white">Everything you need to connect and collaborate.</h2>
@@ -151,7 +151,7 @@ export default function Home() {
       </div>
 
       <Reveal className="mx-auto max-w-7xl px-4 py-16">
-        <div className="rounded-[2.5rem] border border-slate-200 bg-slate-900 p-8 text-white shadow-soft md:p-12 dark:border-slate-700 dark:bg-slate-950">
+        <div className="rounded-[2.5rem] border border-slate-200 bg-slate-900 p-8 text-white md:p-12 dark:border-slate-700 dark:bg-slate-950">
           <div className="relative grid items-center gap-8 lg:grid-cols-[1fr_auto]">
             <div>
               <span className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold uppercase tracking-[0.16em] text-slate-200">Join the community</span>

@@ -117,11 +117,11 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Project Moderation Section */}
+      {/* Collaboration Moderation Section */}
       <div>
         <div className="flex items-center gap-2 mb-4">
           <FolderGit2 className="text-blue-500" size={20} />
-          <h2 className="font-display text-2xl font-bold">Project Moderation</h2>
+          <h2 className="font-display text-2xl font-bold">Collaboration Moderation</h2>
         </div>
         <div className="card overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -151,7 +151,7 @@ export default function Admin() {
                       className="rounded-full bg-rose-50 px-4 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-200" 
                       onClick={() => deleteProject(project.id)}
                     >
-                      Remove Group
+                      Remove Collaboration
                     </button>
                   </td>
                 </tr>

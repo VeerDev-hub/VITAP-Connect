@@ -9,7 +9,7 @@ const links = [
   ["Dashboard", "/dashboard"],
   ["Discover", "/discover"],
   ["Connections", "/connections"],
-  ["Projects", "/projects"],
+  ["Collaborations", "/collaborations"],
   ["Chat", "/chat"]
 ];
 
@@ -49,22 +49,43 @@ export default function Navbar({ darkMode, setDarkMode }) {
       setUnreadCount(prev => prev + 1);
     };
 
-    const handleChatNotif = () => {
+    const handleChatNotif = (data) => {
       if (window.location.pathname !== "/chat") {
         setHasUnreadChats(true);
+        // Also add to Bell notifications for visibility
+        setNotifications(prev => [{ 
+          message: `New message from ${data.senderName}`, 
+          id: Date.now(), 
+          createdAt: new Date().toISOString(),
+          type: 'chat'
+        }, ...prev].slice(0, 15));
+        setUnreadCount(prev => prev + 1);
+      }
+    };
+
+    const handleProjectChatNotif = (data) => {
+      if (window.location.pathname !== "/chat") {
+        setHasUnreadChats(true);
+        setNotifications(prev => [{ 
+          message: `Group update: ${data.senderName} sent a message`, 
+          id: Date.now(), 
+          createdAt: new Date().toISOString(),
+          type: 'chat'
+        }, ...prev].slice(0, 15));
+        setUnreadCount(prev => prev + 1);
       }
     };
     
     thisSocket.on("notification", handleNotif);
     thisSocket.on("direct:message", handleChatNotif);
-    thisSocket.on("project:message", handleChatNotif);
-    thisSocket.on("group:message", handleChatNotif);
+    thisSocket.on("project:message", handleProjectChatNotif);
+    thisSocket.on("group:message", handleProjectChatNotif);
 
     return () => {
       thisSocket.off("notification", handleNotif);
       thisSocket.off("direct:message", handleChatNotif);
-      thisSocket.off("project:message", handleChatNotif);
-      thisSocket.off("group:message", handleChatNotif);
+      thisSocket.off("project:message", handleProjectChatNotif);
+      thisSocket.off("group:message", handleProjectChatNotif);
     };
   }, [user]);
 
@@ -119,7 +140,7 @@ export default function Navbar({ darkMode, setDarkMode }) {
               </button>
               
               {showDropdown && (
-                <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 animate-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 animate-in slide-in-from-top-2 duration-200">
                   <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/80">
                     <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">Notifications</span>
                     <button onClick={() => { api.delete("/notifications/clear"); setNotifications([]); setUnreadCount(0); }} className="text-xs font-semibold text-slate-500 hover:text-rose-500">Clear All</button>

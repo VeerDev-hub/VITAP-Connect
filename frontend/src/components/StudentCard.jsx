@@ -1,10 +1,22 @@
 import { memo, useState } from "react";
 import { CheckCircle2, Clock3, Github, Instagram, Linkedin, UserPlus, ChevronDown, ChevronUp } from "lucide-react";
+import { motion } from "framer-motion";
 
 const statusCopy = {
   friend: ["Friends", CheckCircle2, "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200"],
   requestSent: ["Request sent", Clock3, "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200"],
   requestReceived: ["Requested you", UserPlus, "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"]
+};
+
+// Animation variants for staggered list
+const itemVariants = {
+  hidden: { opacity: 0, scale: 0.9, y: 15 },
+  visible: { 
+    opacity: 1, 
+    scale: 1, 
+    y: 0,
+    transition: { type: "spring", damping: 15, stiffness: 100 }
+  }
 };
 
 export default memo(function StudentCard({ student, compact = false, actionLabel = "Connect", onAction, secondaryActionLabel, onSecondaryAction, dangerActionLabel, onDangerAction }) {
@@ -14,8 +26,10 @@ export default memo(function StudentCard({ student, compact = false, actionLabel
   const canAct = onAction && (!student.connectionStatus || student.connectionStatus === "none");
 
   return (
-    <article 
-      className={`card cursor-pointer transition-all duration-300 hover:shadow-xl ${compact ? "!p-4" : ""} ${isExpanded ? "ring-2 ring-slate-200 dark:ring-white/10" : "hover:-translate-y-1"}`}
+    <motion.article 
+      variants={itemVariants}
+      whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
+      className={`card cursor-pointer transition-all duration-300 ${compact ? "!p-4" : ""} ${isExpanded ? "ring-2 ring-slate-200 dark:ring-white/10" : "hover:-translate-y-1"}`}
       onClick={(e) => {
         if (e.target.tagName !== "BUTTON" && e.target.tagName !== "A") {
           setIsExpanded(!isExpanded);
@@ -75,6 +89,6 @@ export default memo(function StudentCard({ student, compact = false, actionLabel
           {onDangerAction && <button className="rounded-full border border-rose-200 bg-rose-50 px-5 py-3 font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200" onClick={() => onDangerAction(student)}>{dangerActionLabel}</button>}
         </div>
       )}
-    </article>
+    </motion.article>
   );
 });

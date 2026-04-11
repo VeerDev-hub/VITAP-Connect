@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, CheckCheck, MessageSquare, Phone, Send, SmilePlus, Users, Video, MoreVertical, Menu, ArrowLeft, Trash2, ShieldAlert } from "lucide-react";
 import toast from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../services/api";
 import { getSocket } from "../services/socket";
 import { useAuth } from "../context/AuthContext";
@@ -514,123 +515,145 @@ export default function Chat() {
     <div className="flex overflow-hidden bg-slate-50 dark:bg-slate-900" style={{ height: "calc(100dvh - 64px)" }}>
       {/* Unified Responsive Sidebar */}
       <div className={`w-full md:w-80 border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 flex-col ${showMobileList ? "flex" : "hidden md:flex"}`}>
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Chats</h1>
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Messages</h1>
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl">
             <button
               type="button"
-              className={`p-2 rounded-lg ${mode === "direct" ? "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white" : "text-slate-500"}`}
+              className={`p-2 rounded-lg transition-all ${mode === "direct" ? "bg-white text-indigo-600 dark:bg-slate-800 dark:text-indigo-400 border border-slate-200 dark:border-white/5" : "text-slate-500 hover:text-slate-700"}`}
               onClick={() => setMode("direct")}
+              title="Direct Messages"
             >
-              <MessageSquare size={20} />
+              <MessageSquare size={18} />
             </button>
             <button
               type="button"
-              className={`p-2 rounded-lg ${mode === "project" ? "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white" : "text-slate-500"}`}
+              className={`p-2 rounded-lg transition-all ${mode === "project" ? "bg-white text-indigo-600 dark:bg-slate-800 dark:text-indigo-400 border border-slate-200 dark:border-white/5" : "text-slate-500 hover:text-slate-700"}`}
               onClick={() => setMode("project")}
+              title="Collaborations"
             >
-              <Users size={20} />
+              <Users size={18} />
             </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {mode === "direct" && conversations.length === 0 && (
-            <div className="p-4 text-center text-slate-500">
-              <MessageSquare size={48} className="mx-auto mb-2 opacity-50" />
-              <p>No conversations yet</p>
-              <p className="text-sm">Connect with friends to start chatting</p>
-            </div>
-          )}
-          {mode === "project" && rooms.length === 0 && (
-            <div className="p-4 text-center text-slate-500">
-              <Users size={48} className="mx-auto mb-2 opacity-50" />
-              <p>No project rooms</p>
-              <p className="text-sm">Join a project to start collaborating</p>
-            </div>
-          )}
-
-          {mode === "direct" && conversations.map((conversation) => {
-            const active = activeChat?.type === "direct" && activeChat.id === conversation.id;
-            const unreadCount = conversation.unreadCount || 0;
-            return (
-              <button
-                type="button"
-                key={conversation.id}
-                className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
-                onClick={() => { setActiveChat({ type: "direct", id: conversation.id }); setShowMobileList(false); }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <img 
-                      className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-white/10" 
-                      src={conversation.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(conversation.name)}`} 
-                      alt={conversation.name} 
-                    />
-                    {onlineUserIds.includes(conversation.id) && (
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
-                    )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={mode}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {mode === "direct" && conversations.length === 0 && (
+                <div className="p-10 text-center text-slate-500">
+                  <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare size={32} className="opacity-50" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-slate-900 dark:text-white truncate">
-                        {conversation.name}
-                      </p>
-                      {conversation.lastMessageAt && (
-                        <span className="text-xs text-slate-500">
-                          {formatTimestamp(conversation.lastMessageAt)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-sm text-slate-500 truncate">
-                        {conversation.lastMessage || "Start a conversation"}
-                      </p>
-                      {unreadCount > 0 && (
-                        <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  <p className="font-bold">No chats yet</p>
+                  <p className="text-xs mt-1">Connect with students to start a conversation.</p>
                 </div>
-              </button>
-            );
-          })}
-
-          {mode === "project" && rooms.map((room) => {
-            const active = activeChat?.type === "project" && activeChat.id === room.id;
-            const unreadCount = room.unreadCount || 0;
-            return (
-              <button
-                type="button"
-                key={room.id}
-                className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
-                onClick={() => { setActiveChat({ type: "project", id: room.id }); setShowMobileList(false); }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
-                    <Users size={20} className="text-slate-600 dark:text-slate-300" />
+              )}
+              {mode === "project" && rooms.length === 0 && (
+                <div className="p-10 text-center text-slate-500">
+                  <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                    <Users size={32} className="opacity-50" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-slate-900 dark:text-white truncate">
-                        {room.title}
-                      </p>
-                      {unreadCount > 0 && (
-                        <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-500 truncate">
-                      {room.type || "Project"} • {room.members?.length || 0} members
-                    </p>
-                  </div>
+                  <p className="font-bold">No ventures</p>
+                  <p className="text-xs mt-1">Join a collaboration room to find your team.</p>
                 </div>
-              </button>
-            );
-          })}
+              )}
+
+              {mode === "direct" && conversations.map((conversation, idx) => {
+                const active = activeChat?.type === "direct" && activeChat.id === conversation.id;
+                const unreadCount = conversation.unreadCount || 0;
+                return (
+                  <motion.button
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    type="button"
+                    key={conversation.id}
+                    className={`w-full p-4 text-left border-l-4 transition-all ${active ? "bg-indigo-50/50 border-indigo-600 dark:bg-indigo-600/10" : "border-transparent border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5"}`}
+                    onClick={() => { setActiveChat({ type: "direct", id: conversation.id }); setShowMobileList(false); }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <img 
+                          className="w-12 h-12 rounded-2xl object-cover border border-slate-200 dark:border-white/10" 
+                          src={conversation.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(conversation.name)}`} 
+                          alt={conversation.name} 
+                        />
+                        {onlineUserIds.includes(conversation.id) && (
+                          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className={`font-bold truncate ${active ? "text-indigo-600 dark:text-indigo-400" : "text-slate-900 dark:text-white"}`}>
+                            {conversation.name}
+                          </p>
+                          {conversation.lastMessageAt && (
+                            <span className="text-[10px] uppercase font-bold text-slate-400">
+                              {formatTimestamp(conversation.lastMessageAt)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <p className="text-xs text-slate-500 truncate pr-4">
+                            {conversation.lastMessage || "Start a conversation"}
+                          </p>
+                          {unreadCount > 0 && (
+                            <span className="bg-indigo-600 text-white text-[10px] font-black rounded-lg px-2 py-0.5">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.button>
+                );
+              })}
+
+              {mode === "project" && rooms.map((room, idx) => {
+                const active = activeChat?.type === "project" && activeChat.id === room.id;
+                const unreadCount = room.unreadCount || 0;
+                return (
+                  <motion.button
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    type="button"
+                    key={room.id}
+                    className={`w-full p-4 text-left border-l-4 transition-all ${active ? "bg-indigo-50/50 border-indigo-600 dark:bg-indigo-600/10" : "border-transparent border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5"}`}
+                    onClick={() => { setActiveChat({ type: "project", id: room.id }); setShowMobileList(false); }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-slate-100 dark:bg-white/5 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-white/10">
+                        <Users size={18} className="text-slate-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className={`font-bold truncate ${active ? "text-indigo-600 dark:text-indigo-400" : "text-slate-900 dark:text-white"}`}>
+                            {room.title}
+                          </p>
+                          {unreadCount > 0 && (
+                            <span className="bg-indigo-600 text-white text-[10px] font-black rounded-lg px-2 py-0.5">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 truncate mt-0.5 uppercase tracking-wider font-bold">
+                          {room.type || "Collaboration"} • {room.members?.length || 0} members
+                        </p>
+                      </div>
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 
@@ -693,13 +716,17 @@ export default function Chat() {
                   <div className="relative" ref={headerMenuRef}>
                     <button
                       type="button"
-                      className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                      className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg transition-colors border border-transparent hover:border-slate-200 dark:hover:border-white/10"
                       onClick={() => setHeaderMenuOpen((v) => !v)}
                     >
                       <MoreVertical size={20} />
                     </button>
                     {headerMenuOpen && (
-                      <div className="absolute right-0 top-10 z-50 w-48 rounded-xl shadow-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        className="absolute right-0 top-10 z-50 w-48 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden"
+                      >
                         <button
                           type="button"
                           className="flex items-center gap-3 w-full px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -708,7 +735,7 @@ export default function Chat() {
                           <ShieldAlert size={16} />
                           Block User
                         </button>
-                      </div>
+                      </motion.div>
                     )}
                   </div>
                 </div>
@@ -736,7 +763,13 @@ export default function Chat() {
                 const showTimestamp = !prevMessage || new Date(message.createdAt) - new Date(prevMessage.createdAt) > 300000; // 5 minutes
 
                 return (
-                  <div key={`${message.createdAt}-${index}`} className={`flex gap-2 px-2 group ${mine ? "justify-end" : "justify-start"}`}>
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: "spring", damping: 20, stiffness: 200 }}
+                    key={`${message.createdAt}-${index}`} 
+                    className={`flex gap-2 px-2 group ${mine ? "justify-end" : "justify-start"}`}
+                  >
                     {!mine && showAvatar && (
                       <img 
                         className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/10 mt-1 flex-shrink-0" 
@@ -747,12 +780,12 @@ export default function Chat() {
                     {!mine && !showAvatar && <div className="w-8"></div>}
                     <div className={`max-w-[85%] sm:max-w-xs md:max-w-sm lg:max-w-md ${mine ? "order-1" : "order-2"}`}>
                       {!mine && showAvatar && (
-                        <p className="text-xs text-slate-500 mb-1 px-3">
+                        <p className="text-xs font-bold text-slate-500 mb-1 px-3">
                           {message.senderName}
                         </p>
                       )}
                       {showTimestamp && (
-                        <p className="text-xs text-slate-400 text-center mb-2">
+                        <p className="text-[10px] uppercase font-black text-slate-400 text-center mb-4 mt-2 tracking-widest">
                           {new Date(message.createdAt).toLocaleDateString("en-IN", {
                             day: "numeric",
                             month: "short",
@@ -767,17 +800,17 @@ export default function Chat() {
                           <button
                             type="button"
                             title="Delete message"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0 mb-1"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 flex-shrink-0 mb-1"
                             onClick={() => deleteMessage(msgId)}
                           >
                             <Trash2 size={13} />
                           </button>
                         )}
-                        <div className={`rounded-2xl px-4 py-2 ${mine ? "bg-blue-500 text-white" : "bg-white dark:bg-slate-700 text-slate-900 dark:text-white"}`}>
-                          <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                        <div className={`rounded-2xl px-4 py-2.5 ${mine ? "bg-indigo-600 text-white" : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-100 dark:border-white/5"}`}>
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.text}</p>
                         </div>
                       </div>
-                      <div className={`flex items-center gap-1 mt-1 text-xs text-slate-400 ${mine ? "justify-end" : "justify-start"}`}>
+                      <div className={`flex items-center gap-1 mt-1 text-[10px] font-bold text-slate-400 ${mine ? "justify-end" : "justify-start"}`}>
                         <span>{formatTimestamp(message.createdAt)}</span>
                         {mine && activeChat?.type === "direct" && (
                           <StatusIcon message={message} otherUserId={activeChat.id} />
@@ -785,7 +818,7 @@ export default function Chat() {
                       </div>
                     </div>
                     {mine && <div className="w-8"></div>}
-                  </div>
+                  </motion.div>
                 );
               })}
               {typingLabel && (
@@ -805,50 +838,55 @@ export default function Chat() {
               <div ref={messageEndRef} />
             </div>
 
-            {/* Message Input */}
-            <div className="p-2 sm:p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-              {showEmojiPicker && (
-                <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
-                  <div className="flex flex-wrap gap-2">
-                    {emojiList.map((emoji) => (
-                      <button
-                        type="button"
-                        key={emoji}
-                        className="w-8 h-8 hover:bg-slate-200 dark:hover:bg-slate-600 rounded"
-                        onClick={() => addEmoji(emoji)}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="p-3 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex-shrink-0"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                >
-                  <SmilePlus size={20} />
-                </button>
-                <input
-                  className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                  placeholder="Type a message..."
-                  value={text}
-                  onChange={handleInputChange}
-                  onKeyDown={(event) => event.key === "Enter" && sendMessage()}
-                />
-                <button
-                  type="button"
-                  className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full disabled:opacity-50 flex-shrink-0"
-                  onClick={sendMessage}
-                  disabled={!text.trim()}
-                >
-                  <Send size={20} />
-                </button>
-              </div>
-            </div>
-          </>
+        {/* Message Input Area */}
+        <div className="p-3 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <AnimatePresence>
+            {showEmojiPicker && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="mb-4 p-4 bg-slate-50 dark:bg-white/5 rounded-[2rem] border border-slate-100 dark:border-white/5 flex flex-wrap gap-2 transition-all"
+              >
+                {emojiList.map((emoji) => (
+                  <button
+                    type="button"
+                    key={emoji}
+                    className="w-10 h-10 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all text-xl flex items-center justify-center"
+                    onClick={() => addEmoji(emoji)}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="p-3 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex-shrink-0"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            >
+              <SmilePlus size={20} />
+            </button>
+            <input
+              className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+              placeholder="Type a message..."
+              value={text}
+              onChange={handleInputChange}
+              onKeyDown={(event) => event.key === "Enter" && sendMessage()}
+            />
+            <button
+              type="button"
+              className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full disabled:opacity-50 flex-shrink-0"
+              onClick={sendMessage}
+              disabled={!text.trim()}
+            >
+              <Send size={20} />
+            </button>
+          </div>
+        </div>
+      </>
         ) : (
           <div className="flex-1 flex flex-col">
             {/* Mobile Chat List Header */}

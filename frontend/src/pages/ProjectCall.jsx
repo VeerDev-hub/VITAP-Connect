@@ -448,12 +448,12 @@ export default function ProjectCall() {
 
   function leaveRoom() {
     socket.emit("call:leave", { roomId });
-    navigate(isPrivateCall ? "/chat" : "/projects");
+    navigate(isPrivateCall ? "/chat" : "/collaborations");
   }
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-10">
-      <div className="rounded-[2rem] bg-slate-950 p-6 text-white shadow-soft">
+      <div className="rounded-[2rem] bg-slate-950 p-6 text-white border border-white/10">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold">{isVoiceRoom ? "Voice" : "Video"} collaboration room</span>

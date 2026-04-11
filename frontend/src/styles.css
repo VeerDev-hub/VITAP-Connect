@@ -16,7 +16,7 @@
   }
 
   .btn-primary {
-    @apply rounded-full bg-slate-900 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-slate-800;
+    @apply rounded-full bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800;
   }
 
   .btn-secondary {
