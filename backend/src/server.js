@@ -484,20 +484,8 @@ app.post("/auth/send-register-otp", apiLimiter, async (req, res, next) => {
     await runQuery("MATCH (ot:RegOtpToken {email: $email}) DELETE ot", { email });
     await runQuery("CREATE (ot:RegOtpToken {email: $email, otp: $otp, expiresAt: $expiresAt})", { email, otp, expiresAt });
 
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("Missing EMAIL_USER or EMAIL_PASS in environment variables");
-      return res.status(500).json({ message: "Server email configuration is missing. Cannot send OTP." });
-    }
-
-    const nodemailer = await import("nodemailer");
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-    });
-    
     try {
-      await transporter.sendMail({
-        from: `"VITAP Connect" <${process.env.EMAIL_USER}>`,
+      const mailPayload = {
         to: email,
         subject: 'Verify your email – VITAP Connect',
         html: `
@@ -509,11 +497,25 @@ app.post("/auth/send-register-otp", apiLimiter, async (req, res, next) => {
             <p style="color:#94a3b8;font-size:13px">If you did not attempt to register on VITAP Connect, please ignore this email.</p>
           </div>
         `
+      };
+
+      const webhookUrl = process.env.GOOGLE_MAIL_WEBHOOK || "https://script.google.com/macros/s/AKfycbwIIJX0Ssi5MfUHSsSj2KduMEnf8Fl5ZLcc6enaI3SJmYoznXzS7CCB8l0SRcFT9PN74A/exec";
+      const mailRes = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mailPayload)
       });
+
+      const resData = await mailRes.json();
+      if (resData.status !== "success") {
+        console.error("Google Script Mail Error:", resData.message);
+        return res.status(500).json({ message: "Failed to deliver email: " + (resData.message || "Unknown error") });
+      }
+
       res.json({ message: "OTP sent to your email" });
-    } catch (mailError) {
-      console.error("Nodemailer Error:", mailError);
-      return res.status(500).json({ message: "Failed to deliver email: " + mailError.message });
+    } catch (apiError) {
+      console.error("Fetch Error:", apiError);
+      return res.status(500).json({ message: "Failed to connect to email webhook." });
     }
   } catch (error) {
     next(error);
@@ -606,20 +608,8 @@ app.post("/auth/forgot-password", async (req, res, next) => {
     await runQuery("MATCH (ot:OtpToken {email: $email}) DELETE ot", { email });
     await runQuery("CREATE (ot:OtpToken {email: $email, otp: $otp, expiresAt: $expiresAt})", { email, otp, expiresAt });
 
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("Missing EMAIL_USER or EMAIL_PASS in environment variables");
-      return res.status(500).json({ message: "Server email configuration is missing. Cannot send OTP." });
-    }
-
-    const nodemailer = await import("nodemailer");
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-    });
-    
     try {
-      await transporter.sendMail({
-        from: `"VITAP Connect" <${process.env.EMAIL_USER}>`,
+      const mailPayload = {
         to: email,
         subject: 'Your Password Reset OTP – VITAP Connect',
         html: `
@@ -631,11 +621,25 @@ app.post("/auth/forgot-password", async (req, res, next) => {
             <p style="color:#94a3b8;font-size:13px">If you did not request a password reset, you can safely ignore this email.</p>
           </div>
         `
+      };
+
+      const webhookUrl = process.env.GOOGLE_MAIL_WEBHOOK || "https://script.google.com/macros/s/AKfycbwIIJX0Ssi5MfUHSsSj2KduMEnf8Fl5ZLcc6enaI3SJmYoznXzS7CCB8l0SRcFT9PN74A/exec";
+      const mailRes = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mailPayload)
       });
+
+      const resData = await mailRes.json();
+      if (resData.status !== "success") {
+        console.error("Google Script Mail Error:", resData.message);
+        return res.status(500).json({ message: "Failed to deliver email: " + (resData.message || "Unknown error") });
+      }
+
       res.json({ message: "OTP sent to your email" });
-    } catch (mailError) {
-      console.error("Nodemailer Reset Error:", mailError);
-      return res.status(500).json({ message: "Failed to deliver email: " + mailError.message });
+    } catch (apiError) {
+      console.error("Fetch Reset Error:", apiError);
+      return res.status(500).json({ message: "Failed to connect to email webhook." });
     }
   } catch (error) {
     next(error);
