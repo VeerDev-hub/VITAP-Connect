@@ -831,23 +831,18 @@ export default function Chat() {
                 );
               })}
               {typingLabel && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="flex gap-2 justify-start px-2 py-1"
-                >
-                  <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl px-4 py-2 border border-slate-200/50 dark:border-white/5 flex items-center gap-3">
-                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                      {typingLabel}
-                    </p>
+                <div className="flex gap-2 justify-start px-2">
+                  <div className="w-8 h-8 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <span className="text-xs text-slate-600 dark:text-slate-300 font-semibold">?</span>
+                  </div>
+                  <div className="bg-white dark:bg-slate-700 rounded-2xl px-4 py-2">
                     <div className="flex gap-1">
-                      <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.2, delay: 0 }} className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-                      <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.2, delay: 0.2 }} className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-                      <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.2, delay: 0.4 }} className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
                     </div>
                   </div>
-                </motion.div>
+                </div>
               )}
               <div ref={messageEndRef} />
             </div>
