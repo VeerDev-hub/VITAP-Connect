@@ -485,6 +485,15 @@ export default function Chat() {
     setTypingLabel("");
     setShowEmojiPicker(false);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    
+    // Explicitly notify others that typing has stopped after sending
+    if (activeChat.type === "direct") {
+      socket.emit("direct:typing", { recipientId: activeChat.id, isTyping: false });
+    } else if (activeChat.type === "project") {
+      socket.emit("project:typing", { projectId: activeChat.id, isTyping: false });
+    } else if (activeChat.type === "group") {
+      socket.emit("group:typing", { groupId: activeChat.id, isTyping: false });
+    }
   }
 
   async function deleteMessage(messageId) {
