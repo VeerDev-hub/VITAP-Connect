@@ -491,24 +491,32 @@ app.post("/auth/send-register-otp", apiLimiter, async (req, res, next) => {
 
     const nodemailer = await import("nodemailer");
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
     });
-    await transporter.sendMail({
-      from: `"VITAP Connect" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Verify your email – VITAP Connect',
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
-          <h2 style="color:#6366f1;margin-bottom:8px">VITAP Connect</h2>
-          <h3 style="margin-bottom:16px">Verify your email address</h3>
-          <p style="color:#475569">Use this one-time code to complete your registration. It expires in <strong>10 minutes</strong>.</p>
-          <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#f1f5f9;border-radius:8px;color:#1e293b;margin:24px 0">${otp}</div>
-          <p style="color:#94a3b8;font-size:13px">If you did not attempt to register on VITAP Connect, please ignore this email.</p>
-        </div>
-      `
-    });
-    res.json({ message: "OTP sent to your email" });
+    
+    try {
+      await transporter.sendMail({
+        from: `"VITAP Connect" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Verify your email – VITAP Connect',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+            <h2 style="color:#6366f1;margin-bottom:8px">VITAP Connect</h2>
+            <h3 style="margin-bottom:16px">Verify your email address</h3>
+            <p style="color:#475569">Use this one-time code to complete your registration. It expires in <strong>10 minutes</strong>.</p>
+            <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#f1f5f9;border-radius:8px;color:#1e293b;margin:24px 0">${otp}</div>
+            <p style="color:#94a3b8;font-size:13px">If you did not attempt to register on VITAP Connect, please ignore this email.</p>
+          </div>
+        `
+      });
+      res.json({ message: "OTP sent to your email" });
+    } catch (mailError) {
+      console.error("Nodemailer Error:", mailError);
+      return res.status(500).json({ message: "Failed to deliver email: " + mailError.message });
+    }
   } catch (error) {
     next(error);
   }
@@ -607,24 +615,32 @@ app.post("/auth/forgot-password", async (req, res, next) => {
 
     const nodemailer = await import("nodemailer");
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
     });
-    await transporter.sendMail({
-      from: `"VITAP Connect" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Your Password Reset OTP – VITAP Connect',
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
-          <h2 style="color:#6366f1;margin-bottom:8px">VITAP Connect</h2>
-          <h3 style="margin-bottom:16px">Password Reset OTP</h3>
-          <p style="color:#475569">Use the following one-time password to reset your account password. It expires in <strong>10 minutes</strong>.</p>
-          <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#f1f5f9;border-radius:8px;color:#1e293b;margin:24px 0">${otp}</div>
-          <p style="color:#94a3b8;font-size:13px">If you did not request a password reset, you can safely ignore this email.</p>
-        </div>
-      `
-    });
-    res.json({ message: "OTP sent to your email" });
+    
+    try {
+      await transporter.sendMail({
+        from: `"VITAP Connect" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Your Password Reset OTP – VITAP Connect',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e2e8f0;border-radius:12px">
+            <h2 style="color:#6366f1;margin-bottom:8px">VITAP Connect</h2>
+            <h3 style="margin-bottom:16px">Password Reset OTP</h3>
+            <p style="color:#475569">Use the following one-time password to reset your account password. It expires in <strong>10 minutes</strong>.</p>
+            <div style="font-size:36px;font-weight:700;letter-spacing:12px;text-align:center;padding:24px;background:#f1f5f9;border-radius:8px;color:#1e293b;margin:24px 0">${otp}</div>
+            <p style="color:#94a3b8;font-size:13px">If you did not request a password reset, you can safely ignore this email.</p>
+          </div>
+        `
+      });
+      res.json({ message: "OTP sent to your email" });
+    } catch (mailError) {
+      console.error("Nodemailer Reset Error:", mailError);
+      return res.status(500).json({ message: "Failed to deliver email: " + mailError.message });
+    }
   } catch (error) {
     next(error);
   }
