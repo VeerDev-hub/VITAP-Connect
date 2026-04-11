@@ -169,8 +169,7 @@ export default function Dashboard() {
           <motion.div 
             variants={containerVariants}
             initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
+            animate="visible"
             className={`mt-5 grid gap-4 transition-all duration-300 ${viewMode === "double" ? "grid-cols-2" : "grid-cols-1 md:grid-cols-2"}`}
           >
             {data.recommendations.length === 0 && <p className="rounded-3xl bg-slate-100 p-5 text-sm text-slate-500 dark:bg-white/10 md:col-span-2">Add more skills and interests to unlock better recommendations.</p>}
