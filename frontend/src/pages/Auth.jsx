@@ -255,12 +255,12 @@ export default function Auth({ mode }) {
                     <input id="reg-club" className="input" placeholder="Optional" {...field("club")} />
                   </div>
                   <div className="sm:col-span-2">
-                    <label htmlFor="reg-skills" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Skills</label>
-                    <input id="reg-skills" className="input" list="skill-list" placeholder="React, Node.js, Neo4j" {...field("skills", { required: true })} />
+                    <label htmlFor="reg-skills" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Skills <span className="text-xs font-normal text-slate-500">(comma-separated)</span></label>
+                    <input id="reg-skills" className="input" list="skill-list" placeholder="e.g. React, Node.js, UI Design" {...field("skills", { required: true })} />
                   </div>
                   <div className="sm:col-span-2">
-                    <label htmlFor="reg-interests" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Interests</label>
-                    <input id="reg-interests" className="input" list="interest-list" placeholder="AI, Web Development" {...field("interests", { required: true })} />
+                    <label htmlFor="reg-interests" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Interests <span className="text-xs font-normal text-slate-500">(comma-separated)</span></label>
+                    <input id="reg-interests" className="input" list="interest-list" placeholder="e.g. AI, Web Development, Startups" {...field("interests", { required: true })} />
                   </div>
                   <div>
                     <label htmlFor="reg-goal" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Goal</label>

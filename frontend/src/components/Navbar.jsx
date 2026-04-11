@@ -25,7 +25,8 @@ export default function Navbar({ darkMode, setDarkMode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/70 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/70">
+    <>
+      <header className="sticky top-0 z-40 border-b border-white/70 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/70">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
         <Link to="/" className="font-display text-2xl font-bold tracking-tight">
           VITAP<span className="text-slate-900 dark:text-slate-100">Connect</span>
@@ -35,9 +36,11 @@ export default function Navbar({ darkMode, setDarkMode }) {
           {user?.role === "admin" && <NavItem to="/admin">Admin</NavItem>}
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn-secondary !p-3 lg:hidden" onClick={() => setMobileMenuOpen((value) => !value)} aria-label="Toggle navigation menu">
-            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
+          {user && (
+            <button className="btn-secondary !p-3 lg:hidden" onClick={() => setMobileMenuOpen((value) => !value)} aria-label="Toggle navigation menu">
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+          )}
           <button className="btn-secondary !p-3" onClick={() => setDarkMode((value) => !value)} aria-label="Toggle dark mode">
             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -57,38 +60,43 @@ export default function Navbar({ darkMode, setDarkMode }) {
             </div>
           ) : (
             <>
-              <Link className="btn-secondary hidden sm:inline-flex" to="/login">Login</Link>
-              <Link className="btn-primary" to="/register">Sign up</Link>
+              <Link className="text-sm font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 hidden sm:inline-block" to="/login">Login</Link>
+              <Link className="btn-primary !px-4 !py-2 text-sm" to="/register">Sign up</Link>
             </>
           )}
         </div>
       </nav>
+      </header>
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-slate-200 bg-white/90 px-4 py-4 shadow-sm dark:border-white/10 dark:bg-slate-950/90">
-          <div className="flex flex-col gap-2">
+        <div className="fixed inset-0 z-[100] w-full bg-white dark:bg-slate-950 lg:hidden animate-in slide-in-from-left duration-300 flex flex-col h-full overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-6 border-b border-slate-100 dark:border-white/10">
+            <Link to="/" className="font-display text-2xl font-bold tracking-tight" onClick={() => setMobileMenuOpen(false)}>
+              VITAP<span className="text-slate-900 dark:text-slate-100">Connect</span>
+            </Link>
+            <button className="rounded-full bg-slate-100 p-2 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">
+              <X size={24} />
+            </button>
+          </div>
+          <div className="flex flex-col items-center justify-center gap-6 px-4 py-8 overflow-y-auto flex-1">
             {user ? (
               <>
                 {links.map(([label, href]) => (
-                  <NavLink key={href} to={href} className={({ isActive }) => `rounded-full px-4 py-3 text-sm font-semibold ${isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"}`} onClick={() => setMobileMenuOpen(false)}>
+                  <NavLink key={href} to={href} className={({ isActive }) => `text-3xl font-display font-bold transition-colors ${isActive ? "text-blue-600" : "text-slate-800 hover:text-blue-500 dark:text-slate-200 dark:hover:text-blue-400"}`} onClick={() => setMobileMenuOpen(false)}>
                     {label}
                   </NavLink>
                 ))}
                 {user.role === "admin" && (
-                  <NavLink to="/admin" className={({ isActive }) => `rounded-full px-4 py-3 text-sm font-semibold ${isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10"}`} onClick={() => setMobileMenuOpen(false)}>
+                  <NavLink to="/admin" className={({ isActive }) => `text-3xl font-display font-bold transition-colors ${isActive ? "text-blue-600" : "text-slate-800 hover:text-blue-500 dark:text-slate-200 dark:hover:text-blue-400"}`} onClick={() => setMobileMenuOpen(false)}>
                     Admin
                   </NavLink>
                 )}
-                <Link to="/profile" className="rounded-full px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
+                <Link to="/profile" className="text-3xl font-display font-bold text-slate-800 hover:text-blue-500 dark:text-slate-200 dark:hover:text-blue-400 mt-2" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
+                <button className="text-xl font-bold text-rose-500 mt-6 px-8 py-3 rounded-full bg-rose-50 dark:bg-rose-500/10" onClick={() => { logout(); navigate("/login"); setMobileMenuOpen(false); }}>Logout</button>
               </>
-            ) : (
-              <>
-                <Link to="/login" className="rounded-full px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/10" onClick={() => setMobileMenuOpen(false)}>Login</Link>
-                <Link to="/register" className="btn-primary text-center" onClick={() => setMobileMenuOpen(false)}>Create Account</Link>
-              </>
-            )}
+            ) : null}
           </div>
         </div>
       )}
-    </header>
+    </>
   );
 }

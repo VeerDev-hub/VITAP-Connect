@@ -70,8 +70,8 @@ export default function Home() {
               <Link className="btn-primary inline-flex items-center gap-2" to="/dashboard">Go to Dashboard <ArrowRight size={18} /></Link>
             ) : (
               <>
-                <Link className="btn-primary inline-flex items-center gap-2" to="/register">Start connecting <ArrowRight size={18} /></Link>
-                <Link className="btn-secondary px-8" to="/login">Login</Link>
+                <Link className="btn-primary inline-flex items-center gap-2 !px-5 !py-2.5 text-sm sm:!px-6 sm:!py-3 sm:text-base" to="/register">Start connecting <ArrowRight size={18} /></Link>
+                <Link className="btn-secondary px-6 text-sm sm:px-8 sm:text-base" to="/login">Login</Link>
               </>
             )}
           </motion.div>
@@ -158,7 +158,7 @@ export default function Home() {
               <h2 className="mt-5 font-display text-4xl font-bold md:text-5xl">Start building your academic network today.</h2>
               <p className="mt-4 max-w-2xl text-slate-300">Connect with fellow VITAP students, find project partners, and make the most of your university experience.</p>
             </div>
-            <Link className="rounded-full bg-white px-6 py-4 font-bold text-slate-900 transition hover:bg-slate-100" to="/register">Create profile</Link>
+            <Link className="rounded-full bg-white px-6 py-3 md:py-4 font-bold text-slate-900 transition hover:bg-slate-100 text-sm md:text-base text-center" to="/register">Create profile</Link>
           </div>
         </div>
       </Reveal>

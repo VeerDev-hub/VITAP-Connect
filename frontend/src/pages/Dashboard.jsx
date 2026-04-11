@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, CheckCircle2, FolderKanban, MessageSquare, Sparkles, UserCheck, Users, X } from "lucide-react";
+import { Bell, CheckCircle2, FolderKanban, MessageSquare, Sparkles, UserCheck, Users, X, LayoutGrid, LayoutList } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../services/api";
 import StudentCard from "../components/StudentCard";
@@ -15,6 +15,7 @@ function profileCompletion(user) {
 export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState({ recommendations: [], notifications: [], analytics: null, projects: [], connections: { requests: [], accepted: [] } });
+  const [viewMode, setViewMode] = useState("single");
   const completion = profileCompletion(user);
 
   async function load() {
@@ -92,13 +93,29 @@ export default function Dashboard() {
               <h2 className="font-display text-2xl font-bold">Recommended collaborators</h2>
               <p className="mt-1 text-sm text-slate-500">Students who match your skills, interests, and academic goals.</p>
             </div>
-            <CheckCircle2 className="text-emerald-500" />
+            
+            <div className="flex items-center rounded-full bg-slate-100 shadow-inner p-1 dark:bg-slate-800">
+              <button 
+                onClick={() => setViewMode("single")} 
+                className={`p-1.5 rounded-full transition ${viewMode === "single" ? "bg-white shadow-sm text-slate-900 dark:bg-slate-700 dark:text-white" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`} 
+                aria-label="Single Column View"
+              >
+                <LayoutList size={14} />
+              </button>
+              <button 
+                onClick={() => setViewMode("double")} 
+                className={`p-1.5 rounded-full transition ${viewMode === "double" ? "bg-white shadow-sm text-slate-900 dark:bg-slate-700 dark:text-white" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}
+                aria-label="Double Column View"
+              >
+                <LayoutGrid size={14} />
+              </button>
+            </div>
           </div>
-          <div className="mt-5 grid gap-5 md:grid-cols-2">
+          <div className={`mt-5 grid gap-4 transition-all duration-300 ${viewMode === "double" ? "grid-cols-2" : "grid-cols-1 md:grid-cols-2"}`}>
             {data.recommendations.length === 0 && <p className="rounded-3xl bg-slate-100 p-5 text-sm text-slate-500 dark:bg-white/10 md:col-span-2">Add more skills and interests to unlock better recommendations.</p>}
             {data.recommendations.map((student) => {
               // Priority: if already sent/received status exists from backend, use it.
-              return <StudentCard key={student.id} student={student} onAction={request} />;
+              return <StudentCard key={student.id} student={student} compact={viewMode === "double"} onAction={request} />;
             })}
           </div>
         </div>

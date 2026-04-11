@@ -758,7 +758,8 @@ app.get("/users/search", requireAuth, async (req, res, next) => {
       const skill = String(req.query.skill || "").toLowerCase();
       const department = String(req.query.department || "").toLowerCase();
       const year = String(req.query.year || "");
-      return (!q || user.name?.toLowerCase().includes(q)) && (!skill || user.skills?.some((item) => item.toLowerCase().includes(skill))) && (!department || user.department?.toLowerCase().includes(department)) && (!year || String(user.year) === year);
+      const matchesQ = !q || user.name?.toLowerCase().includes(q) || user.regNumber?.toLowerCase().includes(q);
+      return matchesQ && (!skill || user.skills?.some((item) => item.toLowerCase().includes(skill))) && (!department || user.department?.toLowerCase().includes(department)) && (!year || String(user.year) === year);
     });
     res.json({ users: filtered });
   } catch (error) {
@@ -1389,6 +1390,7 @@ io.on("connection", (socket) => {
     const deliveredTo = isUserOnline(recipientId) ? [userId, recipientId] : [userId];
     const encrypted = encryptMessage(text.trim());
     const message = {
+      id: randomUUID(),
       conversationId,
       participants: [userId, recipientId],
       senderId: userId,
@@ -1399,9 +1401,12 @@ io.on("connection", (socket) => {
       createdAt: new Date()
     };
 
-    if (await mongoReady) await DirectMessage.create({ ...message, ...encrypted });
     io.to(`direct:${conversationId}`).emit("direct:message", { ...message, text: text.trim(), status: deliveredTo.includes(recipientId) ? "delivered" : "sent" });
     io.to(`user:${recipientId}`).emit("direct:message", { ...message, text: text.trim(), status: deliveredTo.includes(recipientId) ? "delivered" : "sent" });
+
+    if (await mongoReady) {
+      DirectMessage.create({ ...message, ...encrypted }).catch((err) => console.error("Async DM save failed:", err));
+    }
 
     // Push notification if recipient is offline
     if (!isUserOnline(recipientId)) {
@@ -1431,6 +1436,7 @@ io.on("connection", (socket) => {
     if (!projectId || !text?.trim()) return;
     const encrypted = encryptMessage(text.trim());
     const message = {
+      id: randomUUID(),
       projectId,
       senderId: userId,
       senderName: socket.data.userName || "Student",
@@ -1438,8 +1444,12 @@ io.on("connection", (socket) => {
       readBy: [userId],
       createdAt: new Date()
     };
-    if (await mongoReady) await ChatMessage.create({ ...message, ...encrypted });
+
     io.to(`project:${projectId}`).emit("project:message", { ...message, text: text.trim() });
+
+    if (await mongoReady) {
+      ChatMessage.create({ ...message, ...encrypted }).catch((err) => console.error("Async Project Msg save failed:", err));
+    }
   });
 
   // ── Group Chat Socket Events ────────────────────────────────────────────────
@@ -1466,13 +1476,16 @@ io.on("connection", (socket) => {
     if (!group) return;
     const encrypted = encryptMessage(text.trim());
     const message = {
+      id: randomUUID(),
       groupId,
       senderId: userId,
       senderName: socket.data.userName || "Student",
       createdAt: new Date()
     };
-    await GroupMessage.create({ ...message, ...encrypted });
+
     io.to(`group:${groupId}`).emit("group:message", { ...message, text: text.trim() });
+
+    GroupMessage.create({ ...message, ...encrypted }).catch((err) => console.error("Async Group Msg save failed:", err));
     // Push to offline members
     const offlineMembers = group.members.filter(m => m !== userId && !isUserOnline(m));
     for (const memberId of offlineMembers) {

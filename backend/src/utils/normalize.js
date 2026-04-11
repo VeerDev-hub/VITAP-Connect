@@ -17,7 +17,7 @@ export function sanitizeStudent(student = {}) {
 
     // If it's just a filename (no http/https), prepend the base URL
     if (!safe.avatarUrl.startsWith("http")) {
-      const baseUrl = process.env.API_BASE_URL || "";
+      const baseUrl = process.env.API_BASE_URL || "http://localhost:5000";
       const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
       safe.avatarUrl = `${cleanBase}/uploads/${safe.avatarUrl}`;
     }
