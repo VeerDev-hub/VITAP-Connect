@@ -198,7 +198,7 @@ app.use((req, res, next) => {
 const collegeEmailDomain = "@vitapstudent.ac.in";
 
 function sign(user) {
-  return jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "24h" });
+  return jwt.sign({ id: user.id, role: user.role, jwtVersion: user.jwtVersion }, process.env.JWT_SECRET, { expiresIn: "24h" });
 }
 
 // ── Push Notification helper ──────────────────────────────────────────────────
@@ -557,7 +557,8 @@ app.post("/auth/register", authLimiter, async (req, res, next) => {
       status: "active",
       emailVerified: true,
       verifiedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      jwtVersion: randomUUID()
     };
 
     await runQuery("CREATE (s:Student) SET s = $user", { user });
@@ -579,6 +580,10 @@ app.post("/auth/login", authLimiter, async (req, res, next) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
     if (user.status === "blocked") return res.status(403).json({ message: "Account blocked by admin" });
+    
+    // Auto-logout old sessions:
+    await runQuery("MATCH (s:Student {id: $id}) SET s.jwtVersion = $version", { id: user.id, version: randomUUID() });
+
     const safe = await getStudentById(user.id);
     const token = sign(safe);
     res.cookie("jwt", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 24 * 60 * 60 * 1000 });
@@ -832,6 +837,8 @@ app.post("/connections/request", requireAuth, async (req, res, next) => {
       MERGE (to)-[:HAS_NOTIFICATION]->(n)
     `, { fromUserId: req.user.id, toUserId: req.body.toUserId, notificationId: randomUUID(), message: `${req.user.name} sent you a connection request`, createdAt: new Date().toISOString() });
 
+    io.to(`user:${req.body.toUserId}`).emit("notification", { message: `${req.user.name} sent you a connection request` });
+
     // Push + email notification if recipient is offline
     if (!isUserOnline(req.body.toUserId)) {
       const toUser = await getStudentById(req.body.toUserId);
@@ -880,6 +887,8 @@ app.post("/connections/accept", requireAuth, async (req, res, next) => {
       WHERE n.message CONTAINS from.name AND n.message CONTAINS "connection request"
       DETACH DELETE n
     `, { fromUserId: req.body.fromUserId, toUserId: req.user.id });
+
+    io.to(`user:${req.body.fromUserId}`).emit("notification", { message: `${req.user.name} accepted your connection request` });
 
     // Notify the requester that their request was accepted
     if (!isUserOnline(req.body.fromUserId)) {
@@ -1031,7 +1040,7 @@ app.delete("/projects/:id", requireAuth, async (req, res, next) => {
 
 app.post("/projects/request-join", requireAuth, async (req, res, next) => {
   try {
-    await runQuery(`
+    const result = await runQuery(`
       MATCH (student:Student {id: $userId}), (p:Project {id: $projectId})
       WHERE NOT (student)-[:WORKS_ON]->(p)
       MERGE (student)-[:REQUESTED_TO_JOIN {createdAt: $createdAt}]->(p)
@@ -1039,7 +1048,14 @@ app.post("/projects/request-join", requireAuth, async (req, res, next) => {
       MATCH (owner:Student)-[:CREATED_PROJECT]->(p)
       CREATE (n:Notification {id: $notificationId, message: $message, createdAt: $createdAt})
       MERGE (owner)-[:HAS_NOTIFICATION]->(n)
+      RETURN owner.id AS ownerId
     `, { userId: req.user.id, projectId: req.body.projectId, createdAt: new Date().toISOString(), notificationId: randomUUID(), message: `${req.user.name} requested to join your project` });
+
+    if (result.records.length > 0) {
+      const ownerId = result.records[0].get("ownerId");
+      io.to(`user:${ownerId}`).emit("notification", { message: `${req.user.name} requested to join your project` });
+    }
+
     res.status(201).json({ message: "Join request sent" });
   } catch (error) {
     next(error);

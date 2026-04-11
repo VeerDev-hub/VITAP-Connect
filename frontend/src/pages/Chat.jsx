@@ -75,7 +75,7 @@ export default function Chat() {
   const [onlineUserIds, setOnlineUserIds] = useState([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showMobileList, setShowMobileList] = useState(true);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
@@ -512,147 +512,8 @@ export default function Chat() {
 
   return (
     <div className="flex overflow-hidden bg-slate-50 dark:bg-slate-900" style={{ height: "calc(100dvh - 64px)" }}>
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black bg-opacity-50 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        >
-          <div
-            className="w-80 h-full bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Mobile Sidebar Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-              <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Chats</h1>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className={`p-2 rounded-lg ${mode === "direct" ? "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white" : "text-slate-500"}`}
-                  onClick={() => setMode("direct")}
-                >
-                  <MessageSquare size={20} />
-                </button>
-                <button
-                  type="button"
-                  className={`p-2 rounded-lg ${mode === "project" ? "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white" : "text-slate-500"}`}
-                  onClick={() => setMode("project")}
-                >
-                  <Users size={20} />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {mode === "direct" && conversations.length === 0 && (
-                <div className="p-4 text-center text-slate-500">
-                  <MessageSquare size={48} className="mx-auto mb-2 opacity-50" />
-                  <p>No conversations yet</p>
-                  <p className="text-sm">Connect with friends to start chatting</p>
-                </div>
-              )}
-              {mode === "project" && rooms.length === 0 && (
-                <div className="p-4 text-center text-slate-500">
-                  <Users size={48} className="mx-auto mb-2 opacity-50" />
-                  <p>No project rooms</p>
-                  <p className="text-sm">Join a project to start collaborating</p>
-                </div>
-              )}
-
-              {mode === "direct" && conversations.map((conversation) => {
-                const active = activeChat?.type === "direct" && activeChat.id === conversation.id;
-                const unreadCount = conversation.unreadCount || 0;
-                return (
-                  <button
-                    type="button"
-                    key={conversation.id}
-                    className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
-                    onClick={() => {
-                      setActiveChat({ type: "direct", id: conversation.id });
-                      setSidebarOpen(false);
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <img 
-                          className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-white/10" 
-                          src={conversation.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(conversation.name)}`} 
-                          alt={conversation.name} 
-                        />
-                        {onlineUserIds.includes(conversation.id) && (
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-semibold text-slate-900 dark:text-white truncate">
-                            {conversation.name}
-                          </p>
-                          {conversation.lastMessageAt && (
-                            <span className="text-xs text-slate-500">
-                              {formatTimestamp(conversation.lastMessageAt)}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <p className="text-sm text-slate-500 truncate">
-                            {conversation.lastMessage || "Start a conversation"}
-                          </p>
-                          {unreadCount > 0 && (
-                            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                              {unreadCount > 99 ? "99+" : unreadCount}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-
-              {mode === "project" && rooms.map((room) => {
-                const active = activeChat?.type === "project" && activeChat.id === room.id;
-                const unreadCount = room.unreadCount || 0;
-                return (
-                  <button
-                    type="button"
-                    key={room.id}
-                    className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
-                    onClick={() => {
-                      setActiveChat({ type: "project", id: room.id });
-                      setSidebarOpen(false);
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
-                        <Users size={20} className="text-slate-600 dark:text-slate-300" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-semibold text-slate-900 dark:text-white truncate">
-                            {room.title}
-                          </p>
-                          {unreadCount > 0 && (
-                            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                              {unreadCount > 99 ? "99+" : unreadCount}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-500 truncate">
-                          {room.type || "Project"} • {room.members?.length || 0} members
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex w-80 border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 flex-col">
+      {/* Unified Responsive Sidebar */}
+      <div className={`w-full md:w-80 border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 flex-col ${showMobileList ? "flex" : "hidden md:flex"}`}>
         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Chats</h1>
           <div className="flex gap-2">
@@ -697,7 +558,7 @@ export default function Chat() {
                 type="button"
                 key={conversation.id}
                 className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
-                onClick={() => setActiveChat({ type: "direct", id: conversation.id })}
+                onClick={() => { setActiveChat({ type: "direct", id: conversation.id }); setShowMobileList(false); }}
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -745,7 +606,7 @@ export default function Chat() {
                 type="button"
                 key={room.id}
                 className={`w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
-                onClick={() => setActiveChat({ type: "project", id: room.id })}
+                onClick={() => { setActiveChat({ type: "project", id: room.id }); setShowMobileList(false); }}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
@@ -774,7 +635,7 @@ export default function Chat() {
       </div>
 
       {/* Chat Area - ensuring flex-grow and proper vertical distribution */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900">
+      <div className={`flex-1 flex-col min-w-0 bg-white dark:bg-slate-900 ${!showMobileList ? "flex" : "hidden md:flex"}`}>
         {activeItem ? (
           <>
             {/* Chat Header */}
@@ -784,7 +645,7 @@ export default function Chat() {
                 <button
                   type="button"
                   className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                  onClick={() => setSidebarOpen(true)}
+                  onClick={() => setShowMobileList(true)}
                 >
                   <ArrowLeft size={20} />
                 </button>
@@ -996,7 +857,7 @@ export default function Chat() {
               <button
                 type="button"
                 className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                onClick={() => setSidebarOpen(true)}
+                onClick={() => setShowMobileList(true)}
               >
                 <Menu size={20} />
               </button>
@@ -1027,7 +888,7 @@ export default function Chat() {
                     type="button"
                     key={conversation.id}
                     className={`w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
-                    onClick={() => setActiveChat({ type: "direct", id: conversation.id })}
+                    onClick={() => { setActiveChat({ type: "direct", id: conversation.id }); setShowMobileList(false); }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative">
@@ -1075,7 +936,7 @@ export default function Chat() {
                     type="button"
                     key={room.id}
                     className={`w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
-                    onClick={() => setActiveChat({ type: "project", id: room.id })}
+                    onClick={() => { setActiveChat({ type: "project", id: room.id }); setShowMobileList(false); }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">

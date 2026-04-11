@@ -9,9 +9,13 @@ export async function requireAuth(req, res, next) {
 
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const result = await readQuery("MATCH (s:Student {id: $id}) RETURN s", { id: payload.id });
-    if (!result.records.length) return res.status(401).json({ message: "User not found" });
+    const student = result.records[0].get("s").properties;
 
-    req.user = sanitizeStudent(result.records[0].get("s").properties);
+    if (student.jwtVersion && payload.jwtVersion && student.jwtVersion !== payload.jwtVersion) {
+      return res.status(401).json({ message: "Session expired. You logged in on another device." });
+    }
+
+    req.user = sanitizeStudent(student);
     next();
   } catch (error) {
     res.status(401).json({ message: "Invalid or expired token" });
