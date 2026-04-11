@@ -50,9 +50,9 @@ export default function Navbar({ darkMode, setDarkMode }) {
     };
 
     const handleChatNotif = (data) => {
-      if (window.location.pathname !== "/chat") {
+      const isChatPage = window.location.pathname.startsWith("/chat");
+      if (!isChatPage && data.senderId !== user?.id) {
         setHasUnreadChats(true);
-        // Also add to Bell notifications for visibility
         setNotifications(prev => [{ 
           message: `New message from ${data.senderName}`, 
           id: Date.now(), 
@@ -64,7 +64,8 @@ export default function Navbar({ darkMode, setDarkMode }) {
     };
 
     const handleProjectChatNotif = (data) => {
-      if (window.location.pathname !== "/chat") {
+      const isChatPage = window.location.pathname.startsWith("/chat");
+      if (!isChatPage && data.senderId !== user?.id) {
         setHasUnreadChats(true);
         setNotifications(prev => [{ 
           message: `Group update: ${data.senderName} sent a message`, 

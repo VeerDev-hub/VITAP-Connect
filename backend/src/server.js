@@ -1418,7 +1418,7 @@ io.on("connection", (socket) => {
     };
 
     io.to(`direct:${conversationId}`).emit("direct:message", { ...message, text: text.trim(), status: deliveredTo.includes(recipientId) ? "delivered" : "sent" });
-    io.to(`user:${recipientId}`).emit("direct:message", { ...message, text: text.trim(), status: deliveredTo.includes(recipientId) ? "delivered" : "sent" });
+    // removed redundant io.to(`user:${recipientId}`)
 
     if (await mongoReady) {
       DirectMessage.create({ ...message, ...encrypted }).catch((err) => console.error("Async DM save failed:", err));
