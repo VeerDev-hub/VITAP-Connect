@@ -178,7 +178,6 @@ export default function Chat() {
   }, [mode, conversations, rooms, groups, activeChat]);
 
   useEffect(() => {
-    socket.auth = { token: localStorage.getItem("vitap_connect_token") };
     if (!socket.connected) socket.connect();
     socket.emit("presence:join", { userName: user.name });
 
