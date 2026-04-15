@@ -598,12 +598,6 @@ app.post("/auth/logout", (req, res) => {
   res.json({ message: "Logged out successfully" });
 });
 
-app.get("/auth/socket-ticket", requireAuth, (req, res) => {
-  // Generate a short-lived ticket (30 seconds) just for WebSocket handshakes
-  const ticket = jwt.sign({ id: req.user.id }, process.env.JWT_SECRET, { expiresIn: '30s' });
-  res.json({ ticket });
-});
-
 app.post("/auth/forgot-password", async (req, res, next) => {
   try {
     const email = String(req.body.email || "").toLowerCase().trim();
