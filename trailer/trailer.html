@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VITAP Connect Trailer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+@font-face { font-family: Brico; src: url(fonts/brico.woff2) format("woff2"); font-weight: 200 800; }
+@font-face { font-family: Plex; src: url(fonts/plex-400.woff2) format("woff2"); font-weight: 400; }
+@font-face { font-family: Plex; src: url(fonts/plex-500.woff2) format("woff2"); font-weight: 500; }
+@font-face { font-family: Plex; src: url(fonts/plex-600.woff2) format("woff2"); font-weight: 600; }
+@font-face { font-family: Mono; src: url(fonts/mono-400.woff2) format("woff2"); font-weight: 400; }
+@font-face { font-family: Mono; src: url(fonts/mono-500.woff2) format("woff2"); font-weight: 500; }
+
+:root {
+  --paper: #F5F3EE; --ink: #17160F; --ink2: #5E5A50; --ink3: #8D887C; --line: #E2DED4;
+  --night: #121110; --surface-d: #1B1A17; --line-d: #2E2C28; --ink2-d: #A8A396;
+  --accent: #D9480F; --accent2: #FF7A45; --accent-soft: #FCE8DD; --ok: #2F7D4F; --ok-d: #68C48D; --bad: #BE3126;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+#wrap { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+#stage { position: absolute; inset: 0; overflow: hidden; background: var(--night); font-family: Plex, sans-serif; color: var(--paper); }
+#cam { position: absolute; inset: 0; }
+.scene { position: absolute; inset: 0; display: none; overflow: hidden; }
+.abs { position: absolute; }
+.acc { color: var(--accent); }
+.acc2 { color: var(--accent2); }
+.mono { font-family: Mono, monospace; letter-spacing: .18em; text-transform: uppercase; }
+.disp { font-family: Brico, sans-serif; font-weight: 700; letter-spacing: -.045em; line-height: .98; }
+.eyebrow { font: 500 22px/1 Mono, monospace; letter-spacing: .22em; text-transform: uppercase; }
+.eyebrow b { color: var(--accent); font-weight: 500; }
+
+/* cold open */
+.slam { position: absolute; left: 0; right: 0; top: 450px; text-align: center; font: 700 150px/180px Brico; letter-spacing: -.05em; color: var(--paper); opacity: 0; }
+.dotgrid { position: absolute; inset: -40px; background-image: radial-gradient(rgba(245,243,238,.16) 1.4px, transparent 1.6px); background-size: 48px 48px; }
+
+/* logo */
+.wm { font: 700 150px/1 Brico; letter-spacing: -.05em; white-space: nowrap; }
+.wm span { display: inline-block; opacity: 0; }
+
+/* browser frame */
+.frame { position: absolute; border-radius: 20px; overflow: hidden; background: #fff; box-shadow: 0 50px 120px -30px rgba(23,22,15,.45), 0 0 0 1px rgba(23,22,15,.08); }
+.frame .bar { height: 52px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; padding: 0 22px; }
+.frame .bar i { width: 13px; height: 13px; border-radius: 50%; background: var(--line); display: block; }
+.frame .url { margin-left: 20px; flex: 1; max-width: 560px; height: 32px; border-radius: 9px; background: #F1EEE7; color: var(--ink3); font: 400 16px/32px Mono; padding-left: 16px; letter-spacing: .02em; }
+.frame .vp { position: relative; overflow: hidden; }
+.frame .zoom { position: absolute; left: 0; top: 0; }
+.nat { position: absolute; left: 0; top: 0; width: 2160px; height: 1350px; transform-origin: 0 0; }
+.nat img { position: absolute; left: 0; top: 0; width: 2160px; height: 1350px; display: block; }
+.ring { position: absolute; border: 6px solid var(--accent); border-radius: 18px; opacity: 0; }
+.callout { position: absolute; background: var(--ink); color: var(--paper); font: 500 30px/1 Plex; padding: 18px 26px; border-radius: 14px; white-space: nowrap; opacity: 0; box-shadow: 0 20px 40px -10px rgba(0,0,0,.35); }
+.callout::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--accent2); margin-right: 14px; vertical-align: 3px; }
+
+/* app-like UI */
+.panel { position: absolute; background: #fff; border: 1px solid var(--line); border-radius: 24px; color: var(--ink); box-shadow: 0 40px 90px -40px rgba(23,22,15,.35); }
+.tag { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; border-radius: 10px; background: #EDEAE3; color: var(--ink2); font: 500 21px/1 Plex; margin-right: 10px; }
+.tag.acc { background: var(--accent-soft); color: var(--accent); }
+.av { display: inline-flex; align-items: center; justify-content: center; border-radius: 14px; font: 500 22px/1 Plex; letter-spacing: .02em; }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 54px; padding: 0 26px; border-radius: 13px; font: 500 22px/1 Plex; }
+.btn.ink { background: var(--ink); color: var(--paper); }
+.btn.out { border: 1.5px solid #CDC8BB; color: var(--ink); }
+
+/* chat */
+.bub { position: absolute; font: 400 30px/1.3 Plex; padding: 15px 26px; border-radius: 20px; white-space: nowrap; opacity: 0; }
+.bub.in { left: 40px; background: #23211E; border: 1px solid var(--line-d); color: var(--paper); transform-origin: 0 50%; border-bottom-left-radius: 6px; }
+.bub.out { right: 40px; background: #F2EFE8; color: var(--ink); transform-origin: 100% 50%; border-bottom-right-radius: 6px; }
+.bub .tk { display: inline-block; margin-left: 12px; font: 500 20px/1 Mono; color: #8D887C; letter-spacing: -.25em; }
+.feat { position: absolute; left: 0; display: flex; align-items: center; gap: 22px; font: 400 32px/1 Plex; color: var(--paper); opacity: 0; white-space: nowrap; }
+.feat .ic { width: 58px; height: 58px; border-radius: 14px; border: 1px solid var(--line-d); background: var(--surface-d); display: flex; align-items: center; justify-content: center; }
+
+/* call */
+.tile { position: absolute; border-radius: 22px; overflow: hidden; opacity: 0; }
+.tile .nm { position: absolute; left: 18px; bottom: 18px; background: rgba(0,0,0,.45); color: #fff; font: 500 20px/1 Plex; padding: 10px 14px; border-radius: 10px; }
+.tile .bars { position: absolute; right: 20px; bottom: 22px; display: flex; gap: 5px; align-items: flex-end; height: 30px; }
+.tile .bars i { width: 6px; background: #fff; border-radius: 3px; display: block; }
+.tile .ini { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 600 40px/1 Plex; color: #fff; background: rgba(255,255,255,.14); }
+.tile .spk { position: absolute; inset: 0; border: 5px solid var(--accent2); border-radius: 22px; opacity: 0; }
+.cbtn { width: 76px; height: 76px; border-radius: 50%; background: #2A2825; display: flex; align-items: center; justify-content: center; }
+
+/* phones */
+.phone { position: absolute; width: 330px; height: 686px; border-radius: 52px; background: #0B0A09; padding: 12px; box-shadow: 0 60px 120px -30px rgba(0,0,0,.7), inset 0 0 0 2px #2b2926; opacity: 0; }
+.phone .scr { width: 306px; height: 662px; border-radius: 41px; overflow: hidden; position: relative; }
+.phone img { width: 306px; display: block; }
+.phone .notch { position: absolute; left: 50%; top: 22px; width: 96px; height: 28px; margin-left: -48px; border-radius: 16px; background: #0B0A09; }
+
+/* stack */
+.box { position: absolute; width: 400px; height: 104px; border-radius: 16px; background: var(--surface-d); border: 1px solid #3a3733; padding: 18px 24px; opacity: 0; }
+.box b { display: block; font: 700 36px/1 Brico; letter-spacing: -.03em; color: var(--paper); }
+.box span { display: block; margin-top: 12px; font: 400 17px/1 Mono; letter-spacing: .06em; color: var(--ink2-d); text-transform: uppercase; }
+.box.hl { border-color: var(--accent2); }
+
+/* overlays */
+#flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+#grain { position: absolute; inset: 0; opacity: .07; mix-blend-mode: overlay; pointer-events: none; }
+#vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,.28) 100%); }
+#hud { position: absolute; inset: 0; pointer-events: none; font: 500 16px/1 Mono; letter-spacing: .22em; text-transform: uppercase; opacity: 0; }
+#hud div { position: absolute; }
+#cursor { position: absolute; left: 0; top: 0; width: 44px; height: 44px; pointer-events: none; display: none; filter: drop-shadow(0 6px 10px rgba(0,0,0,.35)); }
+#play { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; color: #fff; font: 500 18px Mono; letter-spacing: .2em; cursor: pointer; background: rgba(0,0,0,.5); }
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><div id="cam"></div>
+  <svg id="cursor" viewBox="0 0 24 24"><path d="M4 2 L4 19 L8.6 14.8 L11.6 21.4 L14.4 20.2 L11.4 13.7 L17.6 13.4 Z" fill="#fff" stroke="#17160F" stroke-width="1.4" stroke-linejoin="round"/></svg>
+  <canvas id="grain" width="960" height="540"></canvas>
+  <div id="vig"></div>
+  <div id="hud">
+    <div id="hud-tl" style="left:56px;top:48px">VITAP<span class="acc">/</span>Connect</div>
+    <div id="hud-tr" style="right:56px;top:48px">00:00:00</div>
+    <div id="hud-bl" style="left:56px;bottom:46px"></div>
+    <div id="hud-br" style="right:56px;bottom:46px">Product film · 2026</div>
+  </div>
+  <div id="flash"></div>
+</div></div>
+<div id="play">▶&nbsp;&nbsp;CLICK TO PLAY WITH SOUND</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Everything is a pure function of time t (seconds) so the film can be rendered
+// frame-by-frame. window.seek(t) draws one frame.
+// ─────────────────────────────────────────────────────────────────────────────
+const DUR = 60;
+const PAPER = "#F5F3EE", INK = "#17160F", NIGHT = "#121110", ACC = "#D9480F", ACC2 = "#FF7A45";
+
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const p = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, x) => a + (b - a) * x;
+const eo = (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
+const ei = (x) => (x <= 0 ? 0 : Math.pow(2, 10 * x - 10));
+const eio = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const ec = (x) => 1 - Math.pow(1 - x, 3);
+const back = (x) => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const hash = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+function mulberry32(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const mix = (c1, c2, x) => { const a = parseInt(c1.slice(1), 16), b = parseInt(c2.slice(1), 16); const ch = (s) => Math.round(lerp((a >> s) & 255, (b >> s) & 255, x)); return `rgb(${ch(16)},${ch(8)},${ch(0)})`; };
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+function mk(html) { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstElementChild; }
+function tf(el, o = {}) {
+  const { x = 0, y = 0, s = 1, r = 0, rx, ry, op, blur } = o;
+  const sx = o.sx ?? s, sy = o.sy ?? s;
+  el.style.transform = `translate(${x}px,${y}px)${rx != null ? ` rotateX(${rx}deg)` : ""}${ry != null ? ` rotateY(${ry}deg)` : ""} rotate(${r}deg) scale(${sx},${sy})`;
+  if (op != null) el.style.opacity = op;
+  if (blur != null) el.style.filter = blur > 0.1 ? `blur(${blur.toFixed(2)}px)` : "none";
+}
+function posIn(el, root) { let x = 0, y = 0, n = el; while (n && n !== root) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; } return { x, y, w: el.offsetWidth, h: el.offsetHeight, cx: x + el.offsetWidth / 2, cy: y + el.offsetHeight / 2 }; }
+function typeText(str, t, a, b) { return str.slice(0, Math.round(str.length * p(t, a, b))); }
+
+const stage = $("#stage"), cam = $("#cam");
+const scenes = [];
+function addScene(start, end, bg, html, update, init) {
+  const el = mk(`<div class="scene" style="background:${bg}">${html}</div>`);
+  cam.appendChild(el);
+  const sc = { start, end, el, update, init };
+  scenes.push(sc);
+  return sc;
+}
+
+// shared cursor
+const cursorEl = $("#cursor");
+let cursorState = null;
+function cursor(x, y, down = 0) { cursorState = { x, y, down }; }
+
+// browser-frame builder
+function frameHTML(id, src, url, W, extra = "") {
+  const k = W / 2160, H = Math.round(1350 * k);
+  return `<div class="frame" id="${id}" style="width:${W}px">
+    <div class="bar"><i></i><i></i><i></i><div class="url">${url}</div></div>
+    <div class="vp" style="height:${H}px"><div class="zoom" style="width:${W}px;height:${H}px">
+      <div class="nat" style="transform:scale(${k})"><img src="${src}">${extra}</div>
+    </div></div></div>`;
+}
+const box = (x1, y1, x2, y2) => `left:${x1}px;top:${y1}px;width:${x2 - x1}px;height:${y2 - y1}px`;
+const icon = {
+  lock: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${ACC2}" stroke-width="2" stroke-linecap="round"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></svg>`,
+  dots: `<svg width="30" height="30" viewBox="0 0 24 24" fill="${PAPER}"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>`,
+  ticks: `<svg width="32" height="30" viewBox="0 0 28 24" fill="none" stroke="${PAPER}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13l5 5L18 6"/><path d="M11 17l1.5 1.5L24 6"/></svg>`,
+  group: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${PAPER}" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.8c1.6.8 2.6 2.5 3 5.2"/></svg>`,
+  phone: (c = PAPER, s = 30) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>`,
+  video: (c = PAPER, s = 30) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8l-6 4 6 4z"/></svg>`,
+  mic: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg>`,
+  screen: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
+  hang: `<svg width="34" height="34" viewBox="0 0 24 24" fill="#fff"><path d="M12 9c-3.2 0-6.2.9-8.8 2.6-.7.4-.9 1.3-.6 2l1 2c.3.7 1.1 1 1.8.7l2.4-1c.6-.3.9-.9.8-1.5l-.2-1.4C9.6 11.8 10.8 11.6 12 11.6s2.4.2 3.6.8l-.2 1.4c-.1.6.2 1.2.8 1.5l2.4 1c.7.3 1.5 0 1.8-.7l1-2c.3-.7.1-1.6-.6-2C18.2 9.9 15.2 9 12 9z"/></svg>`
+};
+
+// ═══ SCENE 1 · cold open (0–5) ═══════════════════════════════════════════════
+addScene(0, 5, NIGHT, `
+  <div class="dotgrid" id="c-grid"></div>
+  <div class="slam" id="c1">Hackathon in 3 weeks.</div>
+  <div class="slam" id="c2">Team of <span class="acc2">one.</span></div>
+  <div class="slam" id="c3">Sound familiar?</div>
+  <div class="abs mono" id="c0" style="left:0;right:0;top:880px;text-align:center;font-size:20px;letter-spacing:.34em;color:rgba(245,243,238,.45)">VIT-AP University · Amaravati</div>
+`, (lt, t, root) => {
+  const grid = $("#c-grid", root);
+  tf(grid, { s: 1 + t * 0.02, op: 0.5 * p(t, 0, 1.2) * (1 - p(t, 4.3, 4.6)) });
+  $("#c0", root).style.opacity = p(t, 0.2, 0.9) * (1 - p(t, 2.9, 3.1));
+  const slam = (el, a, b) => {
+    if (t < a || t >= b) { el.style.opacity = 0; return; }
+    const k = eo(p(t, a, a + 0.3)), out = p(t, b - 0.12, b);
+    tf(el, { s: lerp(1.8, 1, k) + (t - a) * 0.035 + out * 0.2, op: Math.min(1, k * 4) * (1 - out), blur: (1 - k) * 16 + out * 10 });
+  };
+  slam($("#c1", root), 0.5, 1.75);
+  slam($("#c2", root), 1.75, 3.0);
+  const c3 = $("#c3", root);
+  slam(c3, 3.0, 4.62);
+  if (t > 3.9 && t < 4.62) {
+    const f = Math.floor(t * 60), g = p(t, 3.9, 4.62);
+    const dx = (hash(f) - 0.5) * 60 * g, sk = (hash(f + 3) - 0.5) * 20 * g;
+    c3.style.textShadow = `${12 + 30 * g}px 0 rgba(255,40,40,.85), ${-12 - 30 * g}px 0 rgba(30,220,255,.85)`;
+    c3.style.transform += ` translateX(${dx}px) skewX(${sk}deg)`;
+    if (hash(f + 9) < 0.25 + g * 0.4) c3.style.opacity = 0.15;
+    c3.style.clipPath = hash(f + 5) < 0.5 ? `inset(${hash(f + 1) * 60}% 0 ${hash(f + 2) * 30}% 0)` : "none";
+  } else { c3.style.textShadow = "none"; c3.style.clipPath = "none"; }
+});
+
+// ═══ SCENE 2 · logo reveal (5–9) ═════════════════════════════════════════════
+{
+  const wmHTML = "VITAP/Connect".split("").map((c) => `<span${c === "/" ? ' class="acc2"' : ""}>${c}</span>`).join("");
+  addScene(5, 9, NIGHT, `
+  <div id="lg" class="abs" style="left:0;top:0;width:1920px;height:1080px;transform-origin:541.9px 519.4px">
+    <div id="lgw" class="abs" style="left:660px;top:240px;width:600px;height:600px">
+      <svg viewBox="0 0 32 32" width="600" height="600" style="overflow:visible">
+        <rect id="lrect" width="32" height="32" rx="7" fill="${PAPER}" style="transform-origin:16px 16px;transform-box:view-box"/>
+        <g id="lghost"></g>
+        <path id="ltri" d="M11 11 L22 14 L13 22 Z" fill="none" stroke="${PAPER}" stroke-width="1.4" stroke-linejoin="round" pathLength="1" stroke-dasharray="1 1"/>
+        <circle id="d1" r="3.2" fill="${PAPER}"/><circle id="d2" r="3.2" fill="${ACC}"/><circle id="d3" r="3.2" fill="${PAPER}"/>
+      </svg>
+    </div>
+    <div id="wm" class="abs wm" style="left:690px;top:472px;font-size:128px">${wmHTML}</div>
+    <div id="ltag" class="abs mono" style="left:694px;top:628px;font-size:24px;letter-spacing:.24em;color:rgba(245,243,238,.6)"></div>
+  </div>`, (lt, t, root) => {
+    const targets = [[11, 11], [22, 14], [13, 22]], from = [[-58, -30], [90, -6], [-20, 70]];
+    const ghost = $("#lghost", root);
+    let g = "";
+    targets.forEach(([tx, ty], i) => {
+      const at = (tt) => { const k = eo(p(tt, 5.0 + i * 0.12, 5.75 + i * 0.12)); return [lerp(from[i][0], tx, k), lerp(from[i][1], ty, k)]; };
+      const [x, y] = at(t);
+      const d = $(`#d${i + 1}`, root);
+      d.setAttribute("cx", x); d.setAttribute("cy", y);
+      for (let j = 1; j <= 6; j++) {
+        const [gx, gy] = at(t - j * 0.025);
+        g += `<circle cx="${gx}" cy="${gy}" r="${3.2 - j * 0.35}" fill="${i === 1 ? ACC2 : PAPER}" opacity="${0.32 - j * 0.045}"/>`;
+      }
+    });
+    ghost.innerHTML = g;
+    const tri = $("#ltri", root);
+    tri.setAttribute("stroke-dashoffset", 1 - eio(p(t, 5.7, 6.15)));
+    const rk = p(t, 6.05, 6.5), rect = $("#lrect", root);
+    rect.style.transform = `scale(${back(rk) * (rk > 0 ? 1 : 0)})`;
+    const inv = t >= 6.12;
+    $("#d1", root).setAttribute("fill", inv ? INK : PAPER);
+    $("#d3", root).setAttribute("fill", inv ? INK : PAPER);
+    tri.setAttribute("stroke", inv ? INK : PAPER);
+    const m = eio(p(t, 6.55, 7.15));
+    const wmEl = $("#wm", root), Wm = wmEl.offsetWidth, L = 960 - (330 + 44 + Wm) / 2, TX = L + 165 - 960;
+    wmEl.style.left = `${L + 374}px`; $("#ltag", root).style.left = `${L + 378}px`;
+    $("#lg", root).style.transformOrigin = `${960 + TX + 61.9}px 519.4px`;
+    tf($("#lgw", root), { x: TX * m, s: lerp(1, 0.55, m), r: (1 - eo(p(t, 6.05, 6.7))) * -12 });
+    $$("#wm span", root).forEach((sp, i) => {
+      const k = p(t, 6.8 + i * 0.04, 7.2 + i * 0.04);
+      tf(sp, { y: (1 - eo(k)) * -90, op: k > 0 ? Math.min(1, k * 3) : 0, blur: (1 - eo(k)) * 8 });
+    });
+    const tag = "The collaboration network for VIT-AP students";
+    const shown = typeText(tag, t, 7.45, 8.35);
+    $("#ltag", root).innerHTML = shown + (t > 7.4 && t < 8.6 && Math.floor(t * 6) % 2 === 0 ? '<span style="background:#FF7A45">&nbsp;</span>' : "");
+    const z = ei(p(t, 8.5, 9.0));
+    tf($("#lg", root), { s: 1 + z * 80 });
+  });
+}
+
+// ═══ SCENE 3 · matching graph (9–17) ═════════════════════════════════════════
+{
+  const sc = addScene(9, 17, NIGHT, `
+    <canvas id="gcv" width="1920" height="1080" class="abs" style="left:0;top:0"></canvas>
+    <div id="g-head" class="abs" style="left:120px;top:118px">
+      <div class="eyebrow" style="color:rgba(245,243,238,.6)"><b>01</b> — Matching</div>
+      <div class="disp" style="font-size:112px;margin-top:22px;overflow:hidden"><div id="g-h1">Find your people.</div></div>
+    </div>
+    <div id="g-panel" class="abs" style="left:1268px;top:268px;width:540px;background:#1B1A17;border:1px solid #3a3733;border-radius:24px;padding:30px 34px;opacity:0">
+      <div style="display:flex;align-items:center;gap:18px">
+        <div class="av" style="width:64px;height:64px;background:#E9DFCF;color:#5E4A2A">AM</div>
+        <div><div style="font:600 30px/1.1 Plex">Aarav Menon</div><div class="mono" style="font-size:15px;color:#A8A396;margin-top:8px">Computer Science · Year 3</div></div>
+      </div>
+      <div style="height:1px;background:#2E2C28;margin:26px 0 10px"></div>
+      <div id="g-rows"></div>
+      <div style="height:1px;background:#2E2C28;margin:12px 0 22px"></div>
+      <div id="g-total" style="display:flex;align-items:flex-end;justify-content:space-between;opacity:0">
+        <div class="mono" style="font-size:17px;color:#A8A396">Match score</div>
+        <div id="g-score" class="disp" style="font-size:96px;color:#FF7A45">0</div>
+      </div>
+    </div>
+    <div id="g-cap" class="abs mono" style="left:120px;top:968px;font-size:19px;letter-spacing:.2em;color:rgba(245,243,238,.6);opacity:0">Ranked by a Neo4j graph query <span class="acc2">·</span> and it shows you why</div>
+    <div id="g-wipe" class="abs" style="inset:0;background:${PAPER};clip-path:circle(0px at 0 0)"></div>
+  `, (lt, t, root) => draw(t, root));
+
+  const rows = [["Shared skills", "3 × 3", 9], ["Shared interests", "2 × 2", 4], ["Same department", "", 2], ["Mutual connection", "", 1], ["Same year", "", 1]];
+  $("#g-rows", sc.el).innerHTML = rows.map(([a, b, v]) => `<div class="g-row" style="display:flex;justify-content:space-between;align-items:center;height:54px;opacity:0">
+    <div style="font:400 26px/1 Plex;color:#F5F3EE">${a} <span class="mono" style="font-size:16px;color:#75716A;margin-left:8px">${b}</span></div>
+    <div style="font:500 28px/1 Mono;color:#FF7A45">+${v}</div></div>`).join("");
+
+  const rng = mulberry32(11), nodes = [];
+  const SK = ["React", "Python", "Java", "Figma", "IoT", "Node.js", "ML", "Neo4j", "Flutter", "Rust", "C++", "Docker", "Go", "UI Design", "Data", "AWS"];
+  const top = [
+    { name: "Aarav Menon", sk: "React · Node.js · Neo4j", x: -470, y: -40, z: 0, star: 1 },
+    { name: "Kabir Reddy", sk: "Python · ML", x: 190, y: -230, z: 60 },
+    { name: "Diya Sharma", sk: "React · UI Design", x: 230, y: 250, z: -100 },
+    { name: "Meera Nair", sk: "Node.js · MongoDB", x: -260, y: 300, z: 150 },
+    { name: "Rohan Iyer", sk: "Python · IoT", x: -760, y: 280, z: -180 }
+  ];
+  top.forEach((n) => nodes.push({ ...n, r: 9, topNode: 1 }));
+  while (nodes.length < 90) {
+    const x = (rng() * 2 - 1) * 1050, y = (rng() * 2 - 1) * 560, z = (rng() * 2 - 1) * 600;
+    if (Math.hypot(x, y) < 170) continue;
+    nodes.push({ x, y, z, r: 2.5 + rng() * 3.5, sk: SK[Math.floor(rng() * SK.length)], warm: rng() < 0.22, lab: rng() < 0.3 });
+  }
+  const edges = [];
+  nodes.forEach((a, i) => {
+    const d = nodes.map((b, j) => [j, Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)]).filter(([j]) => j !== i).sort((u, v) => u[1] - v[1]);
+    for (let k = 0; k < 2; k++) if (i < d[k][0]) edges.push([i, d[k][0]]);
+  });
+  const cv = $("#gcv", sc.el), ctx = cv.getContext("2d");
+  function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+  function draw(t, root) {
+    const lt = t - 9;
+    ctx.clearRect(0, 0, 1920, 1080);
+    const camShift = eio(p(t, 12.5, 13.4));
+    const cx = 960 - 140 * camShift, cy = 560 + 20 * camShift;
+    const zoom = 1 + 0.06 * lt / 8 + 0.08 * camShift;
+    const a = -0.22 + lt * 0.045;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const proj = nodes.map((n) => {
+      const x = n.x * ca + n.z * sa, z = -n.x * sa + n.z * ca;
+      const s = (1000 / (1000 + z)) * zoom;
+      return { X: cx + x * s, Y: cy + n.y * s, s, z };
+    });
+    const dist = (i) => Math.hypot(proj[i].X - cx, proj[i].Y - cy);
+    const pop = (i) => back(p(t, 9.25 + dist(i) / 1100, 9.75 + dist(i) / 1100));
+    const act = (i) => 10.5 + dist(i) / 1500;
+    // ambient edges
+    ctx.lineWidth = 1;
+    edges.forEach(([i, j]) => {
+      const al = Math.min(pop(i), pop(j)) * 0.1;
+      if (al <= 0) return;
+      ctx.strokeStyle = `rgba(245,243,238,${al})`;
+      ctx.beginPath(); ctx.moveTo(proj[i].X, proj[i].Y); ctx.lineTo(proj[j].X, proj[j].Y); ctx.stroke();
+    });
+    // scan rings
+    [10.5, 11.5, 12.5].forEach((ti) => {
+      if (t < ti || t > ti + 1) return;
+      const k = t - ti, r = k * 1500;
+      ctx.strokeStyle = `rgba(255,122,69,${0.55 * (1 - k)})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+      ctx.strokeStyle = `rgba(255,122,69,${0.15 * (1 - k)})`; ctx.lineWidth = 26;
+      ctx.beginPath(); ctx.arc(cx, cy, Math.max(0, r - 20), 0, 7); ctx.stroke();
+    });
+    // match edges
+    nodes.forEach((n, i) => {
+      if (!n.topNode) return;
+      const k = eio(p(t, act(i), act(i) + 0.4));
+      if (k <= 0) return;
+      const P = proj[i], X = lerp(cx, P.X, k), Y = lerp(cy, P.Y, k);
+      const hero = n.star && t > 12.6;
+      ctx.strokeStyle = hero ? ACC2 : "rgba(255,122,69,.55)"; ctx.lineWidth = hero ? 4 : 2;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(X, Y); ctx.stroke();
+      if (hero) {
+        for (let q = 0; q < 5; q++) {
+          const u = ((t * 0.9 + q / 5) % 1);
+          ctx.fillStyle = `rgba(255,214,190,${Math.sin(u * Math.PI)})`;
+          ctx.beginPath(); ctx.arc(lerp(cx, P.X, u), lerp(cy, P.Y, u), 5, 0, 7); ctx.fill();
+        }
+      }
+    });
+    // nodes
+    const order = nodes.map((_, i) => i).sort((u, v) => proj[v].z - proj[u].z);
+    order.forEach((i) => {
+      const n = nodes[i], P = proj[i], k = pop(i);
+      if (k <= 0) return;
+      const on = n.topNode ? p(t, act(i), act(i) + 0.15) : 0;
+      const rad = n.r * P.s * Math.max(0, k) * (1 + on * 0.5);
+      const fade = clamp(1.25 - P.z / 900, 0.25, 1);
+      if (n.topNode && on > 0) {
+        ctx.fillStyle = `rgba(255,122,69,${0.18 * on})`;
+        ctx.beginPath(); ctx.arc(P.X, P.Y, rad * 3.2, 0, 7); ctx.fill();
+      }
+      ctx.fillStyle = n.topNode ? mix("#F5F3EE", ACC2, on) : n.warm ? `rgba(255,150,110,${0.65 * fade})` : `rgba(245,243,238,${0.55 * fade})`;
+      ctx.beginPath(); ctx.arc(P.X, P.Y, Math.max(0, rad), 0, 7); ctx.fill();
+      if (!n.topNode && n.lab && k > 0.9 && P.z < 200) {
+        ctx.font = "400 14px Mono"; ctx.fillStyle = `rgba(245,243,238,${0.28 * fade})`;
+        ctx.fillText(n.sk.toUpperCase(), P.X + rad + 8, P.Y + 5);
+      }
+      if (n.topNode) {
+        const la = p(t, act(i) + 0.08, act(i) + 0.35);
+        if (la > 0) {
+          const big = n.star ? 1.18 : 1;
+          ctx.globalAlpha = la;
+          ctx.font = `600 ${Math.round(22 * big)}px Plex`;
+          const w1 = ctx.measureText(n.name).width;
+          ctx.font = `400 ${Math.round(14 * big)}px Mono`;
+          const w2 = ctx.measureText(n.sk.toUpperCase()).width;
+          const bw = Math.max(w1, w2) + 40, bh = 74 * big, bx = P.X + 22, by = P.Y - bh / 2 + (1 - eo(la)) * 14;
+          ctx.fillStyle = n.star ? "#F5F3EE" : "rgba(27,26,23,.92)";
+          rr(bx, by, bw, bh, 14); ctx.fill();
+          ctx.strokeStyle = n.star ? ACC2 : "#3a3733"; ctx.lineWidth = 1.5; ctx.stroke();
+          ctx.fillStyle = n.star ? INK : PAPER; ctx.font = `600 ${Math.round(22 * big)}px Plex`; ctx.fillText(n.name, bx + 20, by + 32 * big);
+          ctx.fillStyle = n.star ? ACC : "#A8A396"; ctx.font = `400 ${Math.round(14 * big)}px Mono`; ctx.fillText(n.sk.toUpperCase(), bx + 20, by + 58 * big);
+          ctx.globalAlpha = 1;
+        }
+      }
+    });
+    // YOU
+    const yk = back(p(t, 9.3, 9.7));
+    const pulse = 1 + 0.12 * Math.max(0, Math.sin((t - 9) * Math.PI * 2 * 2) ) * 0;
+    ctx.fillStyle = "rgba(217,72,15,.25)";
+    ctx.beginPath(); ctx.arc(cx, cy, 44 * yk * pulse, 0, 7); ctx.fill();
+    ctx.fillStyle = ACC2; ctx.beginPath(); ctx.arc(cx, cy, 20 * yk, 0, 7); ctx.fill();
+    ctx.fillStyle = INK; ctx.font = "600 15px Mono"; ctx.textAlign = "center"; ctx.fillText("YOU", cx, cy + 5); ctx.textAlign = "left";
+    // intro accent flood shrinking to YOU
+    if (t < 9.6) {
+      const r = lerp(1800, 20, eio(p(t, 9.0, 9.55)));
+      ctx.fillStyle = ACC; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+    }
+    // DOM bits
+    const hk = eo(p(t, 9.55, 10.2));
+    tf($("#g-h1", root), { y: (1 - hk) * 130 });
+    $("#g-head", root).style.opacity = p(t, 9.5, 9.7);
+    const pk = eo(p(t, 12.7, 13.2));
+    tf($("#g-panel", root), { x: (1 - pk) * 160, op: pk });
+    $$(".g-row", root).forEach((r, i) => { const k = eo(p(t, 13.0 + i * 0.5, 13.25 + i * 0.5)); tf(r, { x: (1 - k) * 60, op: k }); });
+    const tk = p(t, 15.5, 15.7);
+    $("#g-total", root).style.opacity = tk;
+    const sc = Math.round(17 * eio(p(t, 15.5, 16.0)));
+    $("#g-score", root).textContent = sc;
+    tf($("#g-score", root), { s: 1 + 0.25 * Math.max(0, 1 - Math.abs(t - 16.02) * 8) });
+    $("#g-cap", root).style.opacity = p(t, 15.9, 16.2);
+    const A = proj[0];
+    const wr = eio(p(t, 16.45, 17.0)) * 2400;
+    $("#g-wipe", root).style.clipPath = `circle(${wr}px at ${A.X}px ${A.Y}px)`;
+  }
+}
+
+// ═══ SCENE 4 · dashboard + discover (17–23) ══════════════════════════════════
+{
+  const dashExtra = `
+    <div class="ring" id="r1" style="${box(478, 779, 960, 847)}"></div>
+    <div class="callout" id="co1" style="left:488px;top:866px">Every suggestion says why</div>
+    <div class="ring" id="r2" style="${box(1575, 652, 2073, 763)}"></div>
+    <div class="callout" id="co2" style="left:1585px;top:780px">Requests in one tap</div>`;
+  const discExtra = `
+    <div class="abs" style="${box(510, 290, 1500, 342)};background:#fff"></div>
+    <div class="abs" id="q" style="left:524px;top:292px;font:400 38px/48px Plex;color:#17160F"></div>
+    <div class="abs" id="chipN" style="${box(843, 376, 920, 412)};background:#17160F;color:#F5F3EE;border-radius:8px;font:500 25px/36px Plex;text-align:center;opacity:0">Neo4j</div>
+    <div class="abs" style="${box(452, 588, 640, 618)};background:#F5F3EE"></div>
+    <div class="abs" id="cnt" style="left:456px;top:588px;font:400 25px/30px Mono;color:#8D887C">5 students</div>
+    ${[[999, 651, 1521, 997], [1541, 651, 2063, 997], [457, 1017, 978, 1350], [999, 1017, 1521, 1350]].map((b) => `<div class="abs dim" style="${box(...b)};background:#F5F3EE;opacity:0;border-radius:18px"></div>`).join("")}
+    <div class="ring" id="r3" style="${box(447, 641, 988, 1007)};border-radius:24px"></div>`;
+  const W = 1240;
+  addScene(17, 23, PAPER, `
+    <div class="abs" style="left:110px;top:200px;width:500px;color:#17160F">
+      <div id="d-head1"><div class="eyebrow" style="color:#5E5A50"><b>02</b> — Dashboard</div>
+        <div class="disp" style="font-size:68px;margin-top:26px">Everything that needs you, on one screen.</div></div>
+      <div id="d-head2" class="abs" style="top:0;left:0;width:500px"><div class="eyebrow" style="color:#5E5A50"><b>03</b> — Discover</div>
+        <div class="disp" style="font-size:68px;margin-top:26px">Search by skill, branch or year.</div>
+        <div style="font:400 26px/1.45 Plex;color:#5E5A50;margin-top:30px">Live results as you type. Filter chips, not forms.</div></div>
+    </div>
+    <div class="abs" style="left:0;top:0;width:1920px;height:1080px;perspective:2600px">
+      ${frameHTML("fr-d", "shots/dashboard-light.jpg", "vitap-connect.onrender.com/dashboard", W, dashExtra).replace('class="frame"', 'class="frame" style="left:620px;top:200px;width:1240px;transform-origin:0 50%"')}
+      ${frameHTML("fr-s", "shots/discover-light.jpg", "vitap-connect.onrender.com/discover", W, discExtra).replace('class="frame"', 'class="frame" style="left:620px;top:200px;width:1240px;transform-origin:0 50%"')}
+    </div>
+  `, (lt, t, root) => {
+    const k1 = eo(p(t, 17.0, 17.9));
+    const out1 = ei(p(t, 19.75, 20.1));
+    tf($("#fr-d", root), { x: (1 - k1) * 700 - out1 * 1900, y: (1 - k1) * 80, ry: lerp(-55, -14, k1) + (t - 17) * 1.3, rx: 4, op: p(t, 17, 17.25), blur: out1 * 14 });
+    const pop = (sel, a) => { const k = p(t, a, a + 0.35); tf($(sel, root), { s: k > 0 ? lerp(1.25, 1, back(k)) : 1, op: k > 0 ? Math.min(1, k * 3) : 0 }); };
+    pop("#r1", 18.0); pop("#co1", 18.15); pop("#r2", 18.75); pop("#co2", 18.9);
+    const h1 = $("#d-head1", root), h2 = $("#d-head2", root);
+    const hk = eo(p(t, 17.3, 17.9)), ho = p(t, 19.7, 19.95);
+    tf(h1, { y: (1 - hk) * 50 + ho * -40, op: hk * (1 - ho) });
+    const h2k = eo(p(t, 20.05, 20.6));
+    tf(h2, { y: (1 - h2k) * 50, op: h2k });
+    const k2 = eo(p(t, 19.9, 20.5));
+    tf($("#fr-s", root), { x: (1 - k2) * 1900, ry: -14 + (t - 20) * 1.2, rx: 4, op: t > 19.9 ? 1 : 0, blur: (1 - k2) * 14 });
+    const q = typeText("Neo4j", t, 20.6, 21.1);
+    $("#q", root).innerHTML = q + (t > 20.4 && t < 22.5 && Math.floor(t * 4) % 2 === 0 ? '<span style="border-left:3px solid #D9480F;margin-left:2px"></span>' : "");
+    const ck = p(t, 21.3, 21.55);
+    tf($("#chipN", root), { s: ck > 0 ? lerp(1.4, 1, back(ck)) : 1, op: ck > 0 ? 1 : 0 });
+    $("#cnt", root).textContent = t > 21.3 ? "1 student" : "5 students";
+    $$(".dim", root).forEach((d) => (d.style.opacity = 0.82 * p(t, 21.3, 21.6)));
+    pop("#r3", 21.6);
+    const z = eio(p(t, 21.6, 22.9));
+    const zm = $("#fr-s .zoom", root);
+    zm.style.transformOrigin = `${717 * (W / 2160)}px ${823 * (W / 2160)}px`;
+    zm.style.transform = `scale(${1 + 0.45 * z})`;
+    const out2 = ei(p(t, 22.7, 23.0));
+    if (out2 > 0) tf($("#fr-s", root), { ry: -14 + (t - 20) * 1.2, rx: 4, y: -out2 * 1100, op: 1, blur: out2 * 10 });
+    $("#d-head2", root).style.opacity = h2k * (1 - out2);
+  });
+}
+
+// ═══ SCENE 5 · collaborations (23–29) ════════════════════════════════════════
+addScene(23, 29, PAPER, `
+  <img src="shots/collaborations-light.jpg" class="abs" id="cb-bg" style="left:760px;top:60px;width:1500px;opacity:.13;transform:rotate(-6deg)">
+  <div class="abs" id="cb-head" style="left:110px;top:250px;width:640px;color:#17160F">
+    <div class="eyebrow" style="color:#5E5A50"><b>04</b> — Collaborations</div>
+    <div class="disp" style="font-size:96px;margin-top:26px">Post a project.<br>Build the team.</div>
+    <div style="font:400 27px/1.5 Plex;color:#5E5A50;margin-top:34px">Name the skills you need, accept join requests. Every project gets a team channel and a call room.</div>
+  </div>
+  <div class="panel" id="cb-card" style="left:930px;top:300px;width:850px;padding:44px 48px">
+    <div style="display:flex;align-items:center;gap:14px"><span class="tag acc" style="font-family:Mono;letter-spacing:.14em;font-size:17px">HACKATHON</span><span class="mono" style="font-size:17px;color:#8D887C">VITAP HackFest · Dec 20</span></div>
+    <div id="cb-title" class="disp" style="font-size:74px;margin-top:26px;height:76px">&nbsp;</div>
+    <div id="cb-desc" style="font:400 26px/1.5 Plex;color:#5E5A50;margin-top:18px;opacity:0">One place for every club event on campus, with RSVP and reminders.</div>
+    <div class="mono" style="font-size:16px;color:#8D887C;margin-top:30px">Needs</div>
+    <div style="margin-top:14px;height:40px"><span class="tag cbk">React</span><span class="tag cbk">Node.js</span><span class="tag cbk">UI Design</span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:34px">
+      <div style="display:flex;align-items:center;gap:18px">
+        <div id="cb-stack" style="display:flex">
+          <div class="av cbm" style="width:58px;height:58px;background:#EDE1F2;color:#6A3F7A;border:3px solid #fff">DS</div>
+          <div class="av cbm" style="width:58px;height:58px;background:#DCEBDF;color:#2F6B45;border:3px solid #fff;margin-left:-12px">DS</div>
+          <div class="av" id="cb-slot" style="width:58px;height:58px;margin-left:-12px;opacity:0"></div>
+        </div>
+        <div class="mono" id="cb-count" style="font-size:17px;color:#8D887C">2 members</div>
+      </div>
+      <div style="display:flex;gap:12px"><span class="btn out">Team channel</span><span class="btn ink">Start call</span></div>
+    </div>
+  </div>
+  <div class="panel" id="cb-toast" style="left:1160px;top:120px;width:620px;padding:24px 26px;border-radius:20px;box-shadow:0 40px 80px -20px rgba(23,22,15,.4)">
+    <div style="display:flex;align-items:center;gap:18px">
+      <div class="av" id="cb-kr" style="width:62px;height:62px;background:#F1E9CC;color:#6D5A14">KR</div>
+      <div style="flex:1"><div style="font:500 25px/1.2 Plex">Kabir Reddy wants to join</div><div class="mono" style="font-size:15px;color:#8D887C;margin-top:8px">Python · Machine Learning</div></div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:20px;padding-left:80px"><span class="btn ink" id="cb-acc" style="height:50px">Accept</span><span class="btn out" style="height:50px">Decline</span></div>
+  </div>
+  <div class="av abs" id="cb-fly" style="width:58px;height:58px;background:#F1E9CC;color:#6D5A14;border:3px solid #fff;opacity:0;left:0;top:0"></div>
+  <div id="cb-wipe" class="abs" style="left:-200px;width:2320px;top:1300px;height:1600px;background:${NIGHT};transform:skewY(-6deg)"></div>
+`, (lt, t, root) => {
+  const hk = eo(p(t, 23.05, 23.6));
+  tf($("#cb-head", root), { y: (1 - hk) * 60, op: hk });
+  tf($("#cb-bg", root), { x: -(t - 23) * 18, r: -6, op: 0.13 });
+  const ck = eo(p(t, 23.1, 23.6));
+  tf($("#cb-card", root), { y: (1 - ck) * 140, op: ck, r: (1 - ck) * 4 });
+  const title = typeText("Campus Events Hub", t, 23.5, 24.4);
+  $("#cb-title", root).innerHTML = (title || "&nbsp;") + (t < 24.7 && Math.floor(t * 5) % 2 === 0 ? '<span class="acc">|</span>' : "");
+  const dk = p(t, 24.5, 24.8);
+  tf($("#cb-desc", root), { y: (1 - dk) * 16, op: dk });
+  $$(".cbk", root).forEach((c, i) => { const k = p(t, 25.0 + i * 0.25, 25.3 + i * 0.25); tf(c, { s: k > 0 ? back(k) : 0, op: k > 0 ? 1 : 0 }); });
+  $$(".cbm", root).forEach((c, i) => { const k = p(t, 25.75 + i * 0.12, 26.05 + i * 0.12); tf(c, { x: (1 - eo(k)) * -30, op: k }); });
+  const tk = eo(p(t, 26.25, 26.65)), to = eio(p(t, 27.75, 28.1));
+  tf($("#cb-toast", root), { y: (1 - tk) * -260 + to * -40, op: tk * (1 - to), s: 1 - to * 0.05 });
+  const acc = $("#cb-acc", root);
+  if (t > 27.4) { acc.textContent = "✓ Accepted"; acc.style.background = "#2F7D4F"; } else { acc.textContent = "Accept"; acc.style.background = "#17160F"; }
+  tf(acc, { s: t > 27.32 && t < 27.45 ? 0.92 : 1 });
+  // cursor
+  const card = $("#cb-card", root);
+  const ap = posIn(acc, root);
+  if (t > 26.4 && t < 27.9) {
+    const m = eio(p(t, 26.55, 27.25));
+    cursor(lerp(1560, ap.x + 60, m), lerp(980, ap.y + 26, m), t > 27.32 && t < 27.45);
+  }
+  // flying avatar
+  const kr = posIn($("#cb-kr", root), root), slot = posIn($("#cb-slot", root), root);
+  const fk = eio(p(t, 27.55, 28.05));
+  const fly = $("#cb-fly", root);
+  fly.textContent = "KR";
+  const arc = Math.sin(fk * Math.PI) * -120;
+  if (t > 27.55) tf(fly, { x: lerp(kr.x, slot.x, fk), y: lerp(kr.y, slot.y, fk) + arc, s: 1 + Math.sin(fk * Math.PI) * 0.4, op: 1 }); else fly.style.opacity = 0;
+  $("#cb-count", root).textContent = t > 28.05 ? "3 members" : "2 members";
+  const wk = eio(p(t, 28.45, 29.0));
+  $("#cb-wipe", root).style.transform = `translateY(${-wk * 1650}px) skewY(-6deg)`;
+});
+
+// ═══ SCENE 6 · chat (29–37) ══════════════════════════════════════════════════
+{
+  const msgs = [
+    ["in", "Pushed the recommendation query.", 29.35, 290],
+    ["in", "Can you review before standup?", 29.75, 364],
+    ["out", "On it. Looks clean.", 30.45, 456],
+    ["in", "Call at 8?", 32.4, 548],
+    ["out", "Calling you now.", 33.05, 640]
+  ];
+  addScene(29, 37, NIGHT, `
+    <div id="ch-z" class="abs" style="inset:0">
+    <div id="ch-win" class="abs" style="left:110px;top:120px;width:1010px;height:840px;background:#161513;border:1px solid #2E2C28;border-radius:26px;overflow:hidden">
+      <div style="height:104px;border-bottom:1px solid #2E2C28;display:flex;align-items:center;padding:0 32px;gap:20px">
+        <div style="position:relative"><div class="av" style="width:62px;height:62px;background:#E9DFCF;color:#5E4A2A">AM</div><div style="position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;border-radius:50%;background:#68C48D;border:3px solid #161513"></div></div>
+        <div style="flex:1"><div style="font:600 28px/1.1 Plex">Aarav Menon</div><div id="ch-st" style="font:400 20px/1 Plex;color:#68C48D;margin-top:8px">Online</div></div>
+        <div id="ch-ph" style="width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center">${icon.phone()}</div>
+        <div style="width:56px;height:56px;display:flex;align-items:center;justify-content:center">${icon.video()}</div>
+      </div>
+      <div class="abs mono" style="left:0;right:0;top:200px;text-align:center;font-size:16px;color:#75716A">— Today —</div>
+      ${msgs.map(([d, txt, , y], i) => `<div class="bub ${d}" id="m${i}" style="top:${y}px" data-t="${txt}"><span class="tx">${txt}</span>${d === "out" ? '<span class="tk">✓</span>' : ""}</div>`).join("")}
+      <div class="bub in" id="ch-typ" style="top:548px;padding:24px 28px"><span class="td" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#A8A396;margin-right:8px"></span><span class="td" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#A8A396;margin-right:8px"></span><span class="td" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#A8A396"></span></div>
+      <div class="abs" style="left:0;right:0;bottom:0;height:110px;border-top:1px solid #2E2C28;display:flex;align-items:center;gap:18px;padding:0 28px">
+        <div id="ch-in" style="flex:1;height:64px;border:1px solid #3a3733;border-radius:16px;font:400 26px/62px Plex;padding:0 24px;color:#75716A">Message Aarav Menon</div>
+        <div id="ch-send" style="width:64px;height:64px;border-radius:16px;background:#FF7A45;display:flex;align-items:center;justify-content:center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#17160F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></div>
+      </div>
+    </div>
+    <div class="abs" id="ch-head" style="left:1220px;top:150px;width:620px">
+      <div class="eyebrow" style="color:rgba(245,243,238,.6)"><b>05</b> — Messages</div>
+      <div class="disp" style="font-size:104px;margin-top:26px">Real-time,<br>every time.</div>
+    </div>
+    <div class="abs" style="left:1220px;top:520px;width:640px;height:400px">
+      <div class="feat" style="top:0"><div class="ic">${icon.dots}</div>Typing indicators</div>
+      <div class="feat" style="top:90px"><div class="ic">${icon.ticks}</div>Read receipts</div>
+      <div class="feat" style="top:180px"><div class="ic">${icon.group}</div>Groups &amp; team rooms</div>
+      <div class="feat" style="top:270px;color:#FF7A45"><div class="ic" style="border-color:#FF7A45">${icon.lock}</div>Encrypted at rest · AES-256-GCM</div>
+    </div>
+    <img id="ch-grp" src="shots/group-dark.jpg" class="abs" style="left:640px;top:170px;width:1140px;border-radius:18px;box-shadow:0 50px 100px -20px rgba(0,0,0,.8);opacity:0">
+    <div class="phone" id="ch-phone" style="left:1480px;top:240px"><div class="scr"><img src="shots/m-chat.jpg"></div></div>
+    </div>
+  `, (lt, t, root) => {
+    const wk = eo(p(t, 29.0, 29.5));
+    tf($("#ch-win", root), { x: (1 - wk) * -200, op: wk });
+    const hk = eo(p(t, 29.2, 29.8));
+    tf($("#ch-head", root), { y: (1 - hk) * 60, op: hk });
+    msgs.forEach(([d, txt, at], i) => {
+      const el = $(`#m${i}`, root), k = p(t, at, at + 0.3);
+      tf(el, { s: k > 0 ? lerp(0.6, 1, back(k)) : 0.6, y: (1 - eo(k)) * 30, op: k > 0 ? Math.min(1, k * 3) : 0 });
+      const tkEl = $(".tk", el);
+      if (tkEl) {
+        const read = (i === 2 && t > 31.05) || (i === 4 && t > 33.5);
+        tkEl.textContent = read ? "✓✓" : "✓";
+        tkEl.style.color = read ? "#D9480F" : "#8D887C";
+        tkEl.style.transform = `scale(${read ? 1 + 0.5 * Math.max(0, 1 - (t - (i === 2 ? 31.05 : 33.5)) * 5) : 1})`;
+      }
+      // encryption scramble
+      const tx = $(".tx", el);
+      if (t > 35.0 && t < 36.4) {
+        const f = Math.floor(t * 30);
+        tx.textContent = txt.split("").map((c, j) => {
+          if (c === " ") return " ";
+          if (t > 35.75 + j * 0.018) return c;
+          if (t > 35.0 + j * 0.008) return "0123456789abcdef"[Math.floor(hash(f * 31 + j + i * 97) * 16)];
+          return c;
+        }).join("");
+        tx.style.fontFamily = t < 35.75 ? "Mono" : "";
+      } else { tx.textContent = txt; tx.style.fontFamily = ""; }
+    });
+    const typ = $("#ch-typ", root), ty = t > 31.4 && t < 32.4;
+    typ.style.opacity = ty ? eo(p(t, 31.4, 31.6)) : 0;
+    $$(".td", typ).forEach((d, i) => (d.style.transform = `translateY(${-Math.max(0, Math.sin((t * 8 - i * 0.9))) * 9}px)`));
+    $("#ch-st", root).textContent = ty ? "typing…" : "Online";
+    const inp = $("#ch-in", root);
+    let draft = "";
+    if (t > 29.95 && t < 30.45) draft = typeText("On it. Looks clean.", t, 29.95, 30.35);
+    if (t > 32.6 && t < 33.05) draft = typeText("Calling you now.", t, 32.6, 32.95);
+    inp.textContent = draft || "Message Aarav Menon";
+    inp.style.color = draft ? "#F5F3EE" : "#75716A";
+    tf($("#ch-send", root), { s: (t > 30.4 && t < 30.5) || (t > 33.0 && t < 33.1) ? 0.88 : 1 });
+    $$(".feat", root).forEach((f, i) => { const k = eo(p(t, 33.5 + i * 0.5, 33.85 + i * 0.5)); tf(f, { x: (1 - k) * 50, op: k }); });
+    // collage
+    const g1 = eo(p(t, 35.5, 35.9)), g1o = p(t, 36.35, 36.5);
+    tf($("#ch-grp", root), { y: (1 - g1) * 500, r: lerp(8, -3, g1), op: g1 * (1 - g1o) });
+    const ph = eo(p(t, 35.75, 36.15));
+    tf($("#ch-phone", root), { y: (1 - ph) * 900, r: lerp(14, 5, ph), op: ph * (1 - g1o) });
+    // zoom into phone icon
+    const pp = posIn($("#ch-ph", root), root);
+    const ring = t > 36.2 ? 1 : 0;
+    $("#ch-ph", root).style.background = ring ? "#FF7A45" : "transparent";
+    $("#ch-ph", root).innerHTML = icon.phone(ring ? INK : PAPER);
+    const z = ei(p(t, 36.45, 37.0));
+    const zz = $("#ch-z", root);
+    zz.style.transformOrigin = `${pp.cx}px ${pp.cy}px`;
+    zz.style.transform = `scale(${1 + z * 40})`;
+  });
+}
+
+// ═══ SCENE 7 · calls (37–42) ═════════════════════════════════════════════════
+addScene(37, 42, NIGHT, `
+  <div id="cl-card" class="abs" style="left:700px;top:230px;width:520px;height:620px;border-radius:32px;background:#1B1A17;border:1px solid #3a3733;text-align:center">
+    <div style="position:absolute;left:50%;top:150px">
+      ${[0, 1, 2].map((i) => `<div class="cl-pr" style="position:absolute;left:-90px;top:-90px;width:180px;height:180px;border-radius:50%;border:3px solid #FF7A45"></div>`).join("")}
+      <div class="av" style="position:absolute;left:-80px;top:-80px;width:160px;height:160px;border-radius:50%;background:#E9DFCF;color:#5E4A2A;font-size:52px">AM</div>
+    </div>
+    <div style="position:absolute;left:0;right:0;top:290px;font:700 54px/1 Brico;letter-spacing:-.03em">Aarav Menon</div>
+    <div class="mono" style="position:absolute;left:0;right:0;top:366px;font-size:18px;color:#A8A396">Incoming video call</div>
+    <div style="position:absolute;left:0;right:0;top:470px;display:flex;justify-content:center;gap:28px">
+      <div style="text-align:center"><div class="cbtn" style="width:96px;height:96px;background:#BE3126">${icon.hang}</div><div style="font:400 19px/1 Plex;color:#A8A396;margin-top:14px">Decline</div></div>
+      <div style="text-align:center"><div class="cbtn" id="cl-acc" style="width:96px;height:96px;background:#2F9D5F">${icon.video("#fff", 36)}</div><div style="font:400 19px/1 Plex;color:#A8A396;margin-top:14px">Accept</div></div>
+    </div>
+  </div>
+  <div id="cl-head" class="abs" style="left:160px;top:92px;opacity:0;display:flex;align-items:flex-end;gap:40px">
+    <div><div class="eyebrow" style="color:rgba(245,243,238,.6)"><b>06</b> — Calls</div>
+    <div class="disp" style="font-size:84px;margin-top:20px">Voice, video &amp; screen share.</div></div>
+  </div>
+  <div class="mono abs" id="cl-sub" style="right:160px;top:170px;font-size:18px;color:#A8A396;opacity:0">Peer-to-peer · WebRTC</div>
+  <div class="tile" id="t0" style="left:160px;top:240px;width:1080px;height:660px;background:#000">
+    <img src="shots/dashboard-dark.jpg" style="width:1080px;height:675px;display:block">
+    <div class="nm" style="top:18px;bottom:auto;display:flex;align-items:center;gap:10px">${icon.screen.replace('width="30" height="30"', 'width="22" height="22"')} Aarav is presenting</div>
+  </div>
+  ${[["Aarav Menon", "AM", "linear-gradient(135deg,#6b4a2b,#2a1d12)"], ["Diya Sharma", "DS", "linear-gradient(135deg,#2f5b44,#13241b)"], ["You", "DS", "linear-gradient(135deg,#4a3b63,#1c1626)"]].map(([n, i, bg], k) => `
+  <div class="tile st" id="t${k + 1}" style="left:1262px;top:${240 + k * 227}px;width:498px;height:206px;background:${bg}">
+    <div class="ini" style="width:96px;height:96px;margin:-48px 0 0 -48px;font-size:32px">${i}</div>
+    <div class="nm">${n}</div><div class="bars">${"<i></i>".repeat(4)}</div><div class="spk"></div></div>`).join("")}
+  <div id="cl-bar" class="abs" style="left:50%;top:950px;transform:translateX(-50%);display:flex;gap:18px;padding:14px 22px;background:#1B1A17;border:1px solid #3a3733;border-radius:60px;opacity:0;margin-left:-190px">
+    <div class="cbtn">${icon.mic}</div><div class="cbtn">${icon.video("#fff")}</div><div class="cbtn" style="background:#FF7A45">${icon.screen}</div><div class="cbtn" style="background:#BE3126;width:110px;border-radius:40px">${icon.hang}</div>
+  </div>
+  <div class="mono abs" id="cl-timer" style="left:1262px;top:930px;font-size:20px;color:#A8A396;opacity:0">● REC-FREE · 00:00</div>
+`, (lt, t, root) => {
+  const ck = back(p(t, 37.0, 37.45)), co = ei(p(t, 38.75, 39.05));
+  tf($("#cl-card", root), { s: Math.max(0, ck * (1 - co * 0.7)) * (1 + 0.015 * Math.sin(t * 30) * (t < 38.7 ? 1 : 0)), op: (t >= 37 ? 1 : 0) * (1 - co), blur: co * 10 });
+  $$(".cl-pr", root).forEach((r, i) => { const u = ((t - 37) * 0.9 + i / 3) % 1; tf(r, { s: 1 + u * 1.3, op: (1 - u) * 0.8 * (t < 38.75 ? 1 : 0) }); });
+  if (t > 37.8 && t < 38.95) {
+    const ap = posIn($("#cl-acc", root), root);
+    const m = eio(p(t, 37.9, 38.55));
+    cursor(lerp(1500, ap.cx, m), lerp(1000, ap.cy, m), t > 38.6 && t < 38.75);
+    tf($("#cl-acc", root), { s: t > 38.6 && t < 38.75 ? 0.9 : 1 });
+  }
+  const tiles = $$(".tile", root);
+  tiles.forEach((tl, i) => {
+    const k = p(t, 38.95 + i * 0.1, 39.4 + i * 0.1);
+    tf(tl, { s: k > 0 ? lerp(0.7, 1, back(k)) : 0.7, y: (1 - eo(k)) * 60, op: Math.min(1, k * 2.5) * (1 - ei(p(t, 41.55, 41.95))) });
+  });
+  const spk = Math.floor((t - 39.4) / 0.6) % 3;
+  $$(".st", root).forEach((tl, i) => {
+    $(".spk", tl).style.opacity = t > 39.4 && i === spk ? 1 : 0;
+    $$(".bars i", tl).forEach((b, j) => (b.style.height = `${6 + (i === spk ? 24 : 4) * Math.abs(Math.sin(t * (9 + j * 2.3) + j + i))}px`));
+  });
+  const hk = eo(p(t, 39.3, 39.8));
+  tf($("#cl-head", root), { y: (1 - hk) * 40, op: hk * (1 - p(t, 41.55, 41.9)) });
+  $("#cl-sub", root).style.opacity = p(t, 39.6, 39.9) * (1 - p(t, 41.55, 41.9));
+  const bk = eo(p(t, 39.5, 39.9));
+  $("#cl-bar", root).style.opacity = bk * (1 - p(t, 41.55, 41.9));
+  $("#cl-bar", root).style.transform = `translateY(${(1 - bk) * 60}px)`;
+  const secs = Math.max(0, Math.floor((t - 39.4) * 4));
+  const tm = $("#cl-timer", root);
+  tm.textContent = `● Live · 00:${String(12 + secs).padStart(2, "0")}`;
+  tm.style.opacity = p(t, 39.6, 39.9) * (1 - p(t, 41.55, 41.9));
+});
+
+// ═══ SCENE 8 · themes + mobile (42–49) ═══════════════════════════════════════
+{
+  const W = 1300, k = W / 2160;
+  addScene(42, 49, PAPER, `
+    <div id="th-night" class="abs" style="inset:0;background:${NIGHT};clip-path:circle(0px at 0 0)"></div>
+    <div id="th-head" class="abs" style="left:0;right:0;top:70px;text-align:center">
+      <div class="eyebrow" id="th-eb" style="color:#5E5A50"><b>07</b> — Themes</div>
+      <div class="disp" id="th-h" style="font-size:84px;margin-top:20px;color:#17160F">Light. Dark. Remembered.</div>
+    </div>
+    ${frameHTML("th-fr", "shots/dashboard-light.jpg", "vitap-connect.onrender.com/dashboard", W, `<img id="th-dark" src="shots/dashboard-dark.jpg" style="clip-path:circle(0px at 100px 1216px)">`).replace('class="frame"', 'class="frame" style="left:310px;top:280px;width:1300px"')}
+    <div id="m-head" class="abs" style="left:0;right:0;top:70px;text-align:center;opacity:0">
+      <div class="eyebrow" style="color:rgba(245,243,238,.6)"><b>08</b> — Mobile</div>
+      <div class="disp" style="font-size:84px;margin-top:20px">Made for the phone in your pocket.</div>
+    </div>
+    <div class="phone" id="ph0" style="left:555px;top:300px"><div class="scr"><img src="shots/m-dashboard.jpg"></div><div class="notch"></div></div>
+    <div class="phone" id="ph2" style="left:1035px;top:300px"><div class="scr"><img src="shots/m-collab-dark.jpg"></div><div class="notch"></div></div>
+    <div class="phone" id="ph1" style="left:795px;top:262px"><div class="scr"><img src="shots/m-chat.jpg"></div><div class="notch"></div></div>
+  `, (lt, t, root) => {
+    const fk = eo(p(t, 42.0, 42.6)), fo = ei(p(t, 44.75, 45.15));
+    tf($("#th-fr", root), { y: (1 - fk) * 400 + fo * 900, rx: lerp(30, 0, fk), op: Math.min(1, fk * 2) });
+    $("#th-fr", root).parentElement.style.perspective = "2400px";
+    const hk = eo(p(t, 42.1, 42.6));
+    tf($("#th-head", root), { y: (1 - hk) * 40 - fo * 60, op: hk * (1 - fo) });
+    // toggle position on screen
+    const fr = posIn($("#th-fr", root), root);
+    const tx = fr.x + 100 * k, ty = fr.y + 52 + 1216 * k;
+    if (t > 42.3 && t < 43.4) { const m = eio(p(t, 42.35, 42.85)); cursor(lerp(1200, tx, m), lerp(1040, ty, m), t > 42.92 && t < 43.05); }
+    const dr = eio(p(t, 43.0, 43.7)) * 2600;
+    $("#th-dark", root).style.clipPath = `circle(${dr}px at 100px 1216px)`;
+    const nr = eio(p(t, 43.15, 44.0)) * 2300;
+    $("#th-night", root).style.clipPath = `circle(${nr}px at ${tx}px ${ty}px)`;
+    const inv = p(t, 43.45, 43.75);
+    $("#th-h", root).style.color = mix(INK, PAPER, inv);
+    $("#th-eb", root).style.color = mix("#5E5A50", "#A8A396", inv);
+    const bar = $("#th-fr .bar", root);
+    bar.style.background = mix("#FFFFFF", "#1B1A17", p(t, 43.3, 43.6));
+    bar.style.borderColor = mix("#E2DED4", "#2E2C28", p(t, 43.3, 43.6));
+    $("#th-fr .url", root).style.background = mix("#F1EEE7", "#23211E", p(t, 43.3, 43.6));
+    // phones
+    const mh = eo(p(t, 45.1, 45.6));
+    tf($("#m-head", root), { y: (1 - mh) * 40, op: mh });
+    [["#ph0", 45.0, -7], ["#ph1", 45.25, 0], ["#ph2", 45.5, 7]].forEach(([id, a, rot], i) => {
+      const pk = p(t, a, a + 0.6), out = ei(p(t, 48.55, 49.0));
+      const bob = Math.sin((t - a) * 2 + i) * 8;
+      tf($(id, root), { y: (1 - back(pk)) * 900 + bob + out * 1000, r: rot * eo(pk) + (i - 1) * out * 10, op: pk > 0 ? 1 : 0 });
+    });
+    const scrollY = -eio(p(t, 46.3, 47.8)) * 560;
+    $("#ph0 img", root).style.transform = `translateY(${scrollY}px)`;
+    $("#m-head", root).style.opacity = mh * (1 - p(t, 48.6, 48.9));
+  });
+}
+
+// ═══ SCENE 9 · stack (49–53) ═════════════════════════════════════════════════
+{
+  const B = [
+    ["React 19", "UI · router · forms", 210, 300], ["Vite + Tailwind", "build · design tokens", 210, 430], ["Socket.io client", "live updates", 210, 560],
+    ["Express", "REST · JWT cookies", 760, 300], ["Socket.io", "chat · presence · signalling", 760, 430], ["WebRTC", "P2P voice + video", 760, 560],
+    ["Neo4j", "people · skills · graph", 1310, 330], ["MongoDB", "messages · calls · AES-GCM", 1310, 500],
+    ["Docker Compose", "offline dev stack", 485, 770], ["Render", "deploy blueprint", 1035, 770]
+  ];
+  addScene(49, 53, NIGHT, `
+    <div class="abs" style="left:0;right:0;top:86px;text-align:center" id="sk-head">
+      <div class="eyebrow" style="color:rgba(245,243,238,.6)"><b>09</b> — Under the hood</div>
+    </div>
+    ${[["Client", 210], ["API", 760], ["Data", 1310]].map(([n, x]) => `<div class="mono abs sk-col" style="left:${x}px;top:236px;font-size:18px;color:#FF7A45;opacity:0">${n}</div>`).join("")}
+    <svg class="abs" style="left:0;top:0" width="1920" height="1080"><g id="sk-lines" fill="none" stroke="#FF7A45" stroke-width="2" stroke-opacity=".5"></g><g id="sk-pk" fill="#FFD0BB"></g></svg>
+    ${B.map(([b, s, x, y], i) => `<div class="box" id="bx${i}" style="left:${x}px;top:${y}px"><b>${b}</b><span>${s}</span></div>`).join("")}
+  `, (lt, t, root) => {
+    $("#sk-head", root).style.opacity = p(t, 49.0, 49.3);
+    $$(".sk-col", root).forEach((c, i) => (c.style.opacity = p(t, 49.1 + i * 0.75, 49.3 + i * 0.75)));
+    B.forEach((_, i) => {
+      const k = p(t, 49.25 + i * 0.25, 49.5 + i * 0.25);
+      const el = $(`#bx${i}`, root);
+      tf(el, { s: k > 0 ? lerp(1.5, 1, eo(k)) : 1.5, op: k > 0 ? Math.min(1, k * 3) : 0, blur: (1 - eo(k)) * 8 });
+      el.classList.toggle("hl", t > 49.25 + i * 0.25 && t < 49.6 + i * 0.25);
+    });
+    // connectors: client→api rows, api→data
+    const L = [[610, 352, 760, 352], [610, 482, 760, 482], [610, 612, 760, 482], [1160, 352, 1310, 382], [1160, 482, 1310, 552], [1160, 612, 1310, 382]];
+    const lk = eio(p(t, 51.5, 52.0));
+    $("#sk-lines", root).innerHTML = L.map(([x1, y1, x2, y2]) => `<path d="M${x1} ${y1} C${x1 + 75} ${y1} ${x2 - 75} ${y2} ${x2} ${y2}" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="${1 - lk}"/>`).join("");
+    let pk = "";
+    if (t > 51.9) L.forEach(([x1, y1, x2, y2], i) => {
+      for (let q = 0; q < 2; q++) {
+        const u = ((t - 51.9) * 1.4 + q * 0.5 + i * 0.17) % 1, e = u, mt = 1 - e;
+        const bx = mt ** 3 * x1 + 3 * mt * mt * e * (x1 + 75) + 3 * mt * e * e * (x2 - 75) + e ** 3 * x2;
+        const by = mt ** 3 * y1 + 3 * mt * mt * e * y1 + 3 * mt * e * e * y2 + e ** 3 * y2;
+        pk += `<circle cx="${bx}" cy="${by}" r="5"/>`;
+      }
+    });
+    $("#sk-pk", root).innerHTML = pk;
+    const z = ei(p(t, 52.6, 53.0));
+    root.style.transform = `scale(${1 - z * 0.15})`;
+    root.style.opacity = 1 - z;
+  });
+}
+
+// ═══ SCENE 10 · end card (53–60) ═════════════════════════════════════════════
+{
+  const wmHTML = "VITAP/Connect".split("").map((c) => `<span${c === "/" ? ' class="acc"' : ""}>${c}</span>`).join("");
+  addScene(53, 60, PAPER, `
+    <div class="dotgrid" id="e-grid" style="background-image:radial-gradient(rgba(23,22,15,.13) 1.4px,transparent 1.6px)"></div>
+    <div class="abs" id="e-mark" style="left:870px;top:230px;width:180px;height:180px">
+      <svg viewBox="0 0 32 32" width="180" height="180"><rect width="32" height="32" rx="7" fill="${INK}"/><path d="M11 11 L22 14 L13 22 Z" fill="none" stroke="${PAPER}" stroke-width="1.4" stroke-linejoin="round"/><circle cx="11" cy="11" r="3.2" fill="${PAPER}"/><circle cx="22" cy="14" r="3.2" fill="${ACC}"/><circle cx="13" cy="22" r="3.2" fill="${PAPER}"/></svg>
+    </div>
+    <div class="abs wm" id="e-wm" style="left:0;right:0;top:460px;text-align:center;color:#17160F;font-size:150px">${wmHTML}</div>
+    <div class="abs disp" id="e-tag" style="left:0;right:0;top:650px;text-align:center;color:#5E5A50;font-size:50px;font-weight:500;letter-spacing:-.02em;opacity:0">Find your people. Build something.</div>
+    <div class="abs mono" id="e-stack" style="left:0;right:0;top:790px;text-align:center;font-size:19px;letter-spacing:.26em;color:#8D887C;opacity:0">React · Express · Neo4j · MongoDB · Socket.io · WebRTC</div>
+    <div class="abs" id="e-black" style="inset:0;background:#000;opacity:0"></div>
+  `, (lt, t, root) => {
+    tf($("#e-grid", root), { s: 1.1 - lt * 0.012, op: 0.8 });
+    const mk_ = p(t, 53.0, 53.5);
+    tf($("#e-mark", root), { s: mk_ > 0 ? back(mk_) : 0, r: (1 - eo(mk_)) * -90, op: 1 });
+    $$("#e-wm span", root).forEach((sp, i) => { const k = p(t, 53.3 + i * 0.035, 53.7 + i * 0.035); tf(sp, { y: (1 - eo(k)) * 80, op: Math.min(1, k * 3), blur: (1 - eo(k)) * 10 }); });
+    const tk = eo(p(t, 54.1, 54.7));
+    tf($("#e-tag", root), { y: (1 - tk) * 30, op: tk });
+    $("#e-stack", root).style.opacity = p(t, 54.8, 55.4);
+    $("#e-black", root).style.opacity = eio(p(t, 58.4, 59.6));
+  });
+}
+
+// ═══ global: shake, flash, grain, HUD ════════════════════════════════════════
+const SHAKES = [[0.5, 9], [1.75, 9], [3.0, 7], [5.0, 16], [9.0, 10], [39.0, 7], [43.0, 5], [53.0, 16]];
+const FLASHES = [[5.0, 0.85], [42.0, 0.7], [53.0, 1]];
+const CHAPTERS = [[9, "01 Matching"], [17, "02 Dashboard"], [20, "03 Discover"], [23, "04 Collaborations"], [29, "05 Messages"], [37, "06 Calls"], [42, "07 Themes"], [45, "08 Mobile"], [49, "09 Stack"]];
+const LIGHT_SPANS = [[17, 29], [42, 43.6]];
+
+const grain = $("#grain"), gctx = grain.getContext("2d");
+const tiles = [];
+for (let k = 0; k < 6; k++) {
+  const c = document.createElement("canvas"); c.width = 256; c.height = 256;
+  const x = c.getContext("2d"), d = x.createImageData(256, 256), r = mulberry32(k + 1);
+  for (let i = 0; i < d.data.length; i += 4) { const v = r() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+  x.putImageData(d, 0, 0); tiles.push(c);
+}
+
+function seek(t) {
+  cursorState = null;
+  for (const sc of scenes) {
+    const on = t >= sc.start && t < sc.end;
+    sc.el.style.display = on ? "block" : "none";
+    if (on) sc.update(t - sc.start, t, sc.el);
+  }
+  let sx = 0, sy = 0;
+  for (const [ti, a] of SHAKES) if (t >= ti && t < ti + 0.6) { const d = Math.exp(-(t - ti) * 9) * a; const f = Math.floor(t * 60); sx += (hash(f) - 0.5) * 2 * d; sy += (hash(f + 77) - 0.5) * 2 * d; }
+  cam.style.transform = `translate(${sx}px,${sy}px)`;
+  let fl = 0;
+  for (const [ti, a] of FLASHES) if (t >= ti) fl = Math.max(fl, a * Math.exp(-(t - ti) * 7));
+  $("#flash").style.opacity = fl;
+  const f = Math.floor(t * 30);
+  const tile = tiles[f % tiles.length];
+  gctx.save(); gctx.translate(-(hash(f) * 256) | 0, -(hash(f + 1) * 256) | 0);
+  for (let x = 0; x < 960 + 256; x += 256) for (let y = 0; y < 540 + 256; y += 256) gctx.drawImage(tile, x, y);
+  gctx.restore();
+  const hud = $("#hud");
+  hud.style.opacity = 0.55 * p(t, 9.5, 10) * (1 - p(t, 52.6, 53));
+  const light = LIGHT_SPANS.some(([a, b]) => t >= a && t < b);
+  hud.style.color = light ? INK : PAPER;
+  const ch = CHAPTERS.filter(([a]) => t >= a).pop();
+  $("#hud-bl").textContent = ch ? ch[1] : "";
+  const fr = Math.floor(t * 30) % 30, s = Math.floor(t);
+  $("#hud-tr").textContent = `00:${String(s).padStart(2, "0")}:${String(fr).padStart(2, "0")}`;
+  if (cursorState) {
+    cursorEl.style.display = "block";
+    cursorEl.style.transform = `translate(${cursorState.x - 8}px,${cursorState.y - 4}px) scale(${cursorState.down ? 0.85 : 1})`;
+  } else cursorEl.style.display = "none";
+}
+window.seek = seek;
+window.DUR = DUR;
+
+window.ready = (async () => {
+  await document.fonts.load("700 100px Brico"); await document.fonts.load("400 20px Plex"); await document.fonts.load("500 20px Plex"); await document.fonts.load("600 20px Plex");
+  await document.fonts.load("400 20px Mono"); await document.fonts.load("500 20px Mono");
+  await Promise.all($$("img").map((i) => i.decode().catch(() => {})));
+  // show every scene once so layout (offsets) exists
+  seek(0);
+  return true;
+})();
+
+// ── preview mode ──
+const params = new URLSearchParams(location.search);
+function fit() { const s = Math.min(innerWidth / 1920, innerHeight / 1080); const w = $("#wrap"); w.style.transform = `scale(${s})`; w.style.left = `${(innerWidth - 1920 * s) / 2}px`; w.style.top = `${(innerHeight - 1080 * s) / 2}px`; }
+if (!params.has("render")) {
+  addEventListener("resize", fit); fit();
+  const audio = new Audio("trailer-audio.wav");
+  const play = $("#play"); play.style.display = "flex";
+  let t0 = null;
+  const startAt = Number(params.get("t") || 0);
+  window.ready.then(() => seek(startAt));
+  play.onclick = () => {
+    play.style.display = "none";
+    audio.currentTime = startAt; audio.play().catch(() => {});
+    t0 = performance.now() - startAt * 1000;
+    const loop = () => { const t = audio.paused || audio.error ? (performance.now() - t0) / 1000 : audio.currentTime; seek(Math.min(t, DUR - 0.001)); if (t < DUR) requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  };
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "vitap-connect-trailer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "audio": "node audio.mjs",
+    "stills": "node render.mjs stills",
+    "video": "node render.mjs video 60 8",
+    "build": "node audio.mjs && node render.mjs video 60 8 && node mux.mjs"
+  },
+  "devDependencies": { "playwright": "1.49.1" }
+}
