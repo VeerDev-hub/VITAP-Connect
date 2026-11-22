@@ -1,9 +1,7 @@
-﻿import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
-import { closeDriver, initSchema, runQuery } from "../src/db.js";
+import { closeDriver, initSchema, runQuery } from "../src/db/neo4j.js";
 
-dotenv.config();
 
 const admin = {
   id: randomUUID(),

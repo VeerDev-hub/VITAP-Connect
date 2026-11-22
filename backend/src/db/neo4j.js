@@ -1,18 +1,10 @@
-import dotenv from "dotenv";
 import neo4j from "neo4j-driver";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
+import { config } from "../config/env.js";
 
-const envPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env");
-dotenv.config({ path: envPath });
-
-const driver = neo4j.driver(
-  process.env.NEO4J_URI,
-  neo4j.auth.basic(process.env.NEO4J_USERNAME, process.env.NEO4J_PASSWORD)
-);
+const driver = neo4j.driver(config.neo4j.uri, neo4j.auth.basic(config.neo4j.username, config.neo4j.password));
 
 export async function runQuery(cypher, params = {}) {
-  const session = driver.session({ database: process.env.NEO4J_DATABASE || "neo4j" });
+  const session = driver.session({ database: config.neo4j.database });
   try {
     return await session.executeWrite((tx) => tx.run(cypher, params));
   } finally {
@@ -21,7 +13,7 @@ export async function runQuery(cypher, params = {}) {
 }
 
 export async function readQuery(cypher, params = {}) {
-  const session = driver.session({ database: process.env.NEO4J_DATABASE || "neo4j" });
+  const session = driver.session({ database: config.neo4j.database });
   try {
     return await session.executeRead((tx) => tx.run(cypher, params));
   } finally {

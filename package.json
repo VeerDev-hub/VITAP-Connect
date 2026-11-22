@@ -9,10 +9,15 @@
     "dev:frontend": "npm.cmd --prefix frontend run dev",
     "dev:backend": "npm.cmd --prefix backend run dev",
     "build": "npm.cmd --prefix frontend run build",
-    "seed:admin": "npm.cmd --prefix backend run seed:admin"
+    "seed:admin": "npm.cmd --prefix backend run seed:admin",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f backend frontend",
+    "docker:seed": "docker compose exec backend npm run seed:admin",
+    "docker:reset": "docker compose down -v",
+    "docker:remove-demo": "docker compose exec backend npm run remove-demo -- --apply"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
   }
 }
-

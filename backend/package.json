@@ -6,9 +6,10 @@
     "main": "src/server.js",
     "scripts": {
         "dev": "nodemon src/server.js",
+        "dev:docker": "nodemon --legacy-watch src/server.js",
         "start": "node src/server.js",
         "seed:admin": "node scripts/seedAdmin.js",
-        "seed:demo": "node scripts/seedDemoData.js"
+        "remove-demo": "node scripts/removeDemoData.js"
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",
@@ -27,6 +28,13 @@
         "web-push": "^3.6.7"
     },
     "devDependencies": {
-        "nodemon": "^3.1.9"
+        "nodemon": "^3.1.14"
+    },
+    "description": "",
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "engines": {
+        "node": ">=20"
     }
 }

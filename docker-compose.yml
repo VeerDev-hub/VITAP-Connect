@@ -1,0 +1,93 @@
+# VITAP Connect — full local stack for offline testing.
+#
+#   npm run docker:up      build + start everything
+#   npm run docker:seed    create the admin + demo students
+#   npm run docker:down    stop (data is kept in named volumes)
+#
+#   App        http://localhost:5173
+#   API        http://localhost:5000/health
+#   Mailpit    http://localhost:8025   (OTP emails land here)
+#   Neo4j UI   http://localhost:7474   (neo4j / vitap-local-dev)
+#   MongoDB    mongodb://localhost:27017
+
+name: vitap-connect
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/vitap-local-dev
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p vitap-local-dev 'RETURN 1' || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 15s
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"   # web inbox
+      - "1025:1025"   # SMTP
+
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    env_file: ./backend/.env.docker
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/scripts:/app/scripts
+      - uploads:/app/uploads
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_URL: http://localhost:5000   # resolved by the browser, so localhost
+      CHOKIDAR_USEPOLLING: "true"           # file watching through Windows bind mounts
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules                   # keep the container's Linux node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  neo4j-data:
+  mongo-data:
+  uploads:
