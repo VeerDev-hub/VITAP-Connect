@@ -1,40 +1,40 @@
+const token = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
 export default {
   darkMode: "class",
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
-        blue: {
-          50: "#f8fafc",
-          100: "#f1f5f9",
-          200: "#e2e8f0",
-          300: "#cbd5e1",
-          400: "#94a3b8",
-          500: "#64748b",
-          600: "#475569",
-          700: "#334155",
-          800: "#1e293b",
-          900: "#0f172a"
-        },
-        violet: {
-          50: "#f8fafc",
-          100: "#f3f4f6",
-          200: "#e5e7eb",
-          300: "#d1d5db",
-          400: "#9ca3af",
-          500: "#6b7280",
-          600: "#4b5563",
-          700: "#374151",
-          800: "#1f2937",
-          900: "#111827"
-        }
+        bg: token("bg"),
+        surface: token("surface"),
+        sunken: token("sunken"),
+        ink: { DEFAULT: token("ink"), 2: token("ink-2"), 3: token("ink-3") },
+        line: { DEFAULT: token("line"), strong: token("line-strong") },
+        accent: { DEFAULT: token("accent"), ink: token("accent-ink"), soft: token("accent-soft") },
+        ok: { DEFAULT: token("ok"), soft: token("ok-soft") },
+        warn: { DEFAULT: token("warn"), soft: token("warn-soft") },
+        bad: { DEFAULT: token("bad"), soft: token("bad-soft") }
       },
       fontFamily: {
-        display: ["Space Grotesk", "ui-sans-serif", "system-ui"],
-        body: ["Plus Jakarta Sans", "ui-sans-serif", "system-ui"]
+        display: ['"Bricolage Grotesque Variable"', "ui-sans-serif", "system-ui", "sans-serif"],
+        body: ['"IBM Plex Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ['"IBM Plex Mono"', "ui-monospace", "SFMono-Regular", "monospace"]
+      },
+      borderRadius: {
+        DEFAULT: "6px",
+        md: "8px",
+        lg: "10px",
+        xl: "14px"
       },
       boxShadow: {
-        soft: "0 24px 80px rgba(59, 130, 246, 0.08)"
+        pop: "0 1px 0 rgb(var(--line) / 1), 0 12px 32px -12px rgb(0 0 0 / 0.18)"
+      },
+      keyframes: {
+        "fade-up": { from: { opacity: 0, transform: "translateY(6px)" }, to: { opacity: 1, transform: "none" } }
+      },
+      animation: {
+        "fade-up": "fade-up 220ms ease-out both"
       }
     }
   },

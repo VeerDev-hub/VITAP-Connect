@@ -1,94 +1,89 @@
 import { memo, useState } from "react";
-import { CheckCircle2, Clock3, Github, Instagram, Linkedin, UserPlus, ChevronDown, ChevronUp } from "lucide-react";
-import { motion } from "framer-motion";
+import { Check, Clock3, Github, Instagram, Linkedin, Sparkles, UserPlus } from "lucide-react";
+import { socialUrl } from "../lib/format";
+import { Avatar, Badge } from "./ui";
 
-const statusCopy = {
-  friend: ["Friends", CheckCircle2, "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200"],
-  requestSent: ["Request sent", Clock3, "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200"],
-  requestReceived: ["Requested you", UserPlus, "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"]
+const STATUS = {
+  friend: { label: "Connected", tone: "ok", icon: Check },
+  requestSent: { label: "Request sent", tone: "warn", icon: Clock3 },
+  requestReceived: { label: "Wants to connect", tone: "accent", icon: UserPlus }
 };
 
-// Animation variants for staggered list
-const itemVariants = {
-  hidden: { opacity: 0, scale: 0.9, y: 15 },
-  visible: { 
-    opacity: 1, 
-    scale: 1, 
-    y: 0,
-    transition: { type: "spring", damping: 15, stiffness: 100 }
+const SOCIALS = [
+  ["github", Github, "GitHub"],
+  ["linkedin", Linkedin, "LinkedIn"],
+  ["instagram", Instagram, "Instagram"]
+];
+
+function ActionButton({ className, onClick, children }) {
+  const [busy, setBusy] = useState(false);
+  async function handle() {
+    setBusy(true);
+    try {
+      await onClick();
+    } finally {
+      setBusy(false);
+    }
   }
-};
+  return (
+    <button type="button" className={`btn btn-sm ${className}`} onClick={handle} disabled={busy}>
+      {children}
+    </button>
+  );
+}
 
-export default memo(function StudentCard({ student, compact = false, actionLabel = "Connect", onAction, secondaryActionLabel, onSecondaryAction, dangerActionLabel, onDangerAction }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const status = student.connectionStatus && statusCopy[student.connectionStatus];
-  const StatusIcon = status?.[1];
+function StudentCard({ student, actionLabel = "Connect", onAction, secondaryActionLabel, onSecondaryAction, dangerActionLabel, onDangerAction, online }) {
+  const status = STATUS[student.connectionStatus];
   const canAct = onAction && (!student.connectionStatus || student.connectionStatus === "none");
+  const skills = student.skills || [];
+  const meta = [student.department, student.year && `Year ${student.year}`, student.graduationYear && `’${String(student.graduationYear).slice(-2)}`].filter(Boolean).join(" · ");
+  const socials = SOCIALS.map(([key, Icon, label]) => [socialUrl(key, student[key]), Icon, label]).filter(([url]) => url);
 
   return (
-    <motion.article 
-      variants={itemVariants}
-      whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
-      className={`card cursor-pointer transition-all duration-300 ${compact ? "!p-4" : ""} ${isExpanded ? "ring-2 ring-slate-200 dark:ring-white/10" : "hover:-translate-y-1"}`}
-      onClick={(e) => {
-        if (e.target.tagName !== "BUTTON" && e.target.tagName !== "A") {
-          setIsExpanded(!isExpanded);
-        }
-      }}
-    >
-      <div className={`flex ${compact ? "flex-col items-center text-center gap-2" : "items-start gap-4"}`}>
-        <img loading="lazy" className={`${compact ? "h-14 w-14 rounded-2xl mb-1" : "h-14 w-14 rounded-2xl"} object-cover flex-shrink-0`} src={student.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(student.name)}`} alt={student.name} />
-        <div className={`min-w-0 flex-1 ${compact ? "w-full" : ""}`}>
-          <div className={`flex flex-wrap items-center ${compact ? "justify-center" : ""} gap-1 sm:gap-2`}>
-            <h3 className={`font-display font-bold ${compact ? "text-lg w-full" : "text-xl"} truncate`}>{student.name}</h3>
-            {!compact && student.regNumber && <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-bold text-slate-500 dark:bg-white/10">{student.regNumber}</span>}
-            {!compact && status && <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${status[2]}`}><StatusIcon size={14} /> {status[0]}</span>}
+    <article className="panel flex flex-col p-5 transition-colors hover:border-line-strong">
+      <div className="flex items-start gap-3">
+        <Avatar name={student.name} src={student.avatarUrl} size="lg" online={online} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="truncate text-lg font-semibold leading-tight">{student.name}</h3>
+            {status && <Badge tone={status.tone} icon={status.icon} className="shrink-0">{status.label}</Badge>}
           </div>
-          <p className={`${compact ? "text-xs" : "text-sm"} text-slate-500 dark:text-slate-400 truncate`}>{student.department} - Y{student.year}{student.graduationYear ? ` ('${String(student.graduationYear).slice(-2)})` : ""}</p>
-        </div>
-        <div className={`text-slate-400 ${compact ? "hidden" : ""}`}>
-          {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          {student.regNumber && <p className="mt-0.5 font-mono text-[11px] text-ink-3">{student.regNumber}</p>}
+          {meta && <p className="mt-1 truncate text-sm text-ink-2">{meta}</p>}
         </div>
       </div>
 
-      <div className={`mt-4 space-y-4 overflow-hidden transition-all duration-300 ${isExpanded ? "max-h-[500px] opacity-100" : "max-h-20 opacity-80"}`}>
-        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-          {student.bio || student.reason || "Ready to collaborate on campus projects."}
+      {student.reason && (
+        <p className="mt-4 flex items-center gap-2 rounded-md bg-accent-soft px-3 py-2 text-xs font-semibold text-accent">
+          <Sparkles size={13} /> {student.reason}
         </p>
+      )}
 
-        {isExpanded && (
-          <div className="flex gap-3 pt-2">
-            {student.github && (
-              <a href={`https://github.com/${student.github}`} target="_blank" rel="noopener noreferrer" className="rounded-full bg-slate-100 p-2 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10" title="GitHub">
-                <Github size={18} />
-              </a>
-            )}
-            {student.linkedin && (
-              <a href={`https://linkedin.com/in/${student.linkedin}`} target="_blank" rel="noopener noreferrer" className="rounded-full bg-slate-100 p-2 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10" title="LinkedIn">
-                <Linkedin size={18} />
-              </a>
-            )}
-            {student.instagram && (
-              <a href={`https://instagram.com/${student.instagram}`} target="_blank" rel="noopener noreferrer" className="rounded-full bg-slate-100 p-2 text-slate-700 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10" title="Instagram">
-                <Instagram size={18} />
-              </a>
-            )}
-          </div>
-        )}
+      {student.bio && <p className="mt-4 line-clamp-2 text-sm text-ink-2">{student.bio}</p>}
 
-        {student.reason && <p className="rounded-2xl bg-slate-100 px-4 py-3 text-xs font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100">Why recommended: {student.reason}</p>}
-        <div className="flex flex-wrap gap-2">
-          {(student.skills || []).map((skill) => <span key={skill} className="tag">{skill}</span>)}
-        </div>
-      </div>
-
-      {(canAct || onSecondaryAction || onDangerAction) && (
-        <div className={`mt-5 grid gap-2 sm:gap-3 ${compact ? "grid-cols-1" : "sm:grid-cols-2"}`}>
-           {canAct && <button className={`btn-secondary ${compact ? "" : "sm:col-span-2"} ${compact ? "!py-2 text-xs" : ""}`} onClick={() => onAction(student)}>{actionLabel}</button>}
-          {onSecondaryAction && <button className="btn-secondary" onClick={() => onSecondaryAction(student)}>{secondaryActionLabel}</button>}
-          {onDangerAction && <button className="rounded-full border border-rose-200 bg-rose-50 px-5 py-3 font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200" onClick={() => onDangerAction(student)}>{dangerActionLabel}</button>}
+      {skills.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {skills.slice(0, 5).map((skill) => <span key={skill} className="tag">{skill}</span>)}
+          {skills.length > 5 && <span className="tag border-dashed bg-transparent">+{skills.length - 5}</span>}
         </div>
       )}
-    </motion.article>
+
+      <div className="mt-auto flex items-center justify-between gap-2 pt-5">
+        <div className="flex -ml-2">
+          {socials.map(([url, Icon, label]) => (
+            <a key={label} href={url} target="_blank" rel="noopener noreferrer" className="icon-btn h-8 w-8" title={label} aria-label={`${student.name} on ${label}`}>
+              <Icon size={15} />
+            </a>
+          ))}
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          {onDangerAction && <ActionButton className="btn-ghost text-bad hover:bg-bad-soft hover:text-bad" onClick={() => onDangerAction(student)}>{dangerActionLabel}</ActionButton>}
+          {onSecondaryAction && <ActionButton className="btn-secondary" onClick={() => onSecondaryAction(student)}>{secondaryActionLabel}</ActionButton>}
+          {canAct && <ActionButton className="btn-primary" onClick={() => onAction(student)}><UserPlus size={14} /> {actionLabel}</ActionButton>}
+        </div>
+      </div>
+    </article>
   );
-});
+}
+
+export default memo(StudentCard);

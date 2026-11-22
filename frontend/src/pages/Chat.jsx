@@ -1,1026 +1,686 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Check, CheckCheck, MessageSquare, Phone, Send, SmilePlus, Users, Video, MoreVertical, Menu, ArrowLeft, Trash2, ShieldAlert } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Check, CheckCheck, FolderKanban, Hash, MessageSquare, MoreVertical, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Plus, Send, ShieldAlert, Smile, Trash2, Users, Video, X } from "lucide-react";
 import toast from "react-hot-toast";
-import { motion, AnimatePresence } from "framer-motion";
+import { Avatar, Count, EmptyState } from "../components/ui";
+import { useAuth } from "../context/AuthContext";
+import { apiErrorMessage, clockTime, dayLabel, formatDuration, timeAgo } from "../lib/format";
 import { api } from "../services/api";
 import { getSocket } from "../services/socket";
-import { useAuth } from "../context/AuthContext";
 
-const emojiList = ["😀", "😂", "😍", "🔥", "👍", "👏", "🎉", "🚀", "🤝", "💡", "😎", "🙌"];
+const EMOJI = ["😀", "😂", "😍", "🔥", "👍", "👏", "🎉", "🚀", "🤝", "💡", "😎", "🙌"];
+const TABS = [
+  ["direct", "Chats", MessageSquare],
+  ["group", "Groups", Users],
+  ["project", "Teams", FolderKanban],
+  ["calls", "Calls", Phone]
+];
 
-function formatTimestamp(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  const now = new Date();
-  const diff = now - date;
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
+const conversationId = (a, b) => [a, b].sort().join(":");
+const msgKey = (m) => m._id || m.id;
 
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
-  if (hours < 24) return `${hours}h`;
-  if (days < 7) return `${days}d`;
-  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+function appendUnique(list, message) {
+  const id = msgKey(message);
+  return id && list.some((m) => msgKey(m) === id) ? list : [...list, message];
 }
 
-function formatDuration(seconds) {
-  if (!seconds) return "0m";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins === 0) return `${secs}s`;
-  return `${mins}m ${secs}s`;
+function ReadStatus({ message, otherUserId }) {
+  if ((message.readBy || []).includes(otherUserId)) return <CheckCheck size={13} className="text-accent" aria-label="Read" />;
+  if ((message.deliveredTo || []).includes(otherUserId)) return <CheckCheck size={13} aria-label="Delivered" />;
+  return <Check size={13} aria-label="Sent" />;
 }
 
-function conversationId(userId, otherUserId) {
-  return [userId, otherUserId].sort().join(":");
+function ListItem({ active, onClick, avatar, title, subtitle, meta, unread }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 border-l-2 px-4 py-3 text-left transition-colors ${active ? "border-accent bg-sunken" : "border-transparent hover:bg-sunken/60"}`}
+    >
+      {avatar}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className={`truncate text-sm ${unread ? "font-bold" : "font-semibold"}`}>{title}</p>
+          {meta && <span className="shrink-0 font-mono text-[10px] text-ink-3">{meta}</span>}
+        </div>
+        <div className="mt-0.5 flex items-center justify-between gap-2">
+          <p className={`truncate text-xs ${unread ? "text-ink" : "text-ink-3"}`}>{subtitle}</p>
+          <Count value={unread} />
+        </div>
+      </div>
+    </button>
+  );
 }
 
-function updateMessageStatus(messages, matcher, update) {
-  return messages.map((message) => (matcher(message) ? update(message) : message));
+function RoomIcon({ type }) {
+  const Icon = type === "group" ? Hash : FolderKanban;
+  return (
+    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-line bg-sunken text-ink-2">
+      <Icon size={17} />
+    </span>
+  );
 }
 
-function StatusIcon({ message, otherUserId }) {
-  if (!otherUserId) return null;
-  const readBy = message.readBy || [];
-  const deliveredTo = message.deliveredTo || [];
-  if (readBy.includes(otherUserId)) {
-    return <CheckCheck size={14} className="text-blue-400" />;
+function NewGroupDialog({ friends, onClose, onCreated }) {
+  const [name, setName] = useState("");
+  const [members, setMembers] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  async function create(e) {
+    e.preventDefault();
+    if (!name.trim()) return toast.error("Give the group a name");
+    setSaving(true);
+    try {
+      const { data } = await api.post("/groups/create", { name, memberIds: members });
+      toast.success(`"${name}" created`);
+      onCreated(data.group);
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Could not create the group"));
+      setSaving(false);
+    }
   }
-  if (deliveredTo.includes(otherUserId)) {
-    return <CheckCheck size={14} className="text-slate-400" />;
-  }
-  return <Check size={14} className="text-slate-400" />;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <form onSubmit={create} onClick={(e) => e.stopPropagation()} className="w-full max-w-md animate-fade-up rounded-t-xl border border-line bg-surface shadow-pop sm:rounded-xl">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <h2 className="text-lg font-semibold">New group</h2>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close"><X size={16} /></button>
+        </div>
+        <div className="space-y-4 p-5">
+          <div>
+            <label htmlFor="g-name" className="label">Group name</label>
+            <input id="g-name" className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. DBMS study circle" />
+          </div>
+          <div>
+            <p className="label">Add connections <span className="font-normal text-ink-3">{members.length} selected</span></p>
+            {friends.length === 0 ? (
+              <p className="text-sm text-ink-3">Connect with people first to add them to groups.</p>
+            ) : (
+              <div className="scrollbar-thin max-h-60 divide-y divide-line overflow-y-auto rounded-md border border-line">
+                {friends.map((f) => {
+                  const checked = members.includes(f.id);
+                  return (
+                    <label key={f.id} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-sunken">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-[rgb(var(--accent))]"
+                        checked={checked}
+                        onChange={() => setMembers((m) => (checked ? m.filter((id) => id !== f.id) : [...m, f.id]))}
+                      />
+                      <Avatar name={f.name} src={f.avatarUrl} size="sm" />
+                      <span className="text-sm font-medium">{f.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" disabled={saving}>{saving ? "Creating…" : "Create group"}</button>
+        </div>
+      </form>
+    </div>
+  );
 }
 
 export default function Chat() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const socket = useMemo(() => getSocket(), []);
-  const typingTimeoutRef = useRef(null);
-  const messagesContainerRef = useRef(null);
-  const messageEndRef = useRef(null);
-  // Track if we should auto-scroll. Only true after a new message arrives, not on initial load.
-  const isInitialLoad = useRef(true);
-  const prevMessageCount = useRef(0);
   const [mode, setMode] = useState("direct");
   const [conversations, setConversations] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [groups, setGroups] = useState([]);
   const [callHistory, setCallHistory] = useState([]);
+  const [loaded, setLoaded] = useState(false);
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [typingLabel, setTypingLabel] = useState("");
   const [onlineUserIds, setOnlineUserIds] = useState([]);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [shouldAutoScroll, setShouldAutoScroll] = useState(false);
-  const [showMobileList, setShowMobileList] = useState(true);
-  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
-  const [groupModalOpen, setGroupModalOpen] = useState(false);
-  const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupMembers, setNewGroupMembers] = useState([]);
-  const headerMenuRef = useRef(null);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [showList, setShowList] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [groupDialog, setGroupDialog] = useState(false);
+
   const activeChatRef = useRef(activeChat);
-  const userRef = useRef(user); // Added userRef to prevent stale closures
+  const userRef = useRef(user);
+  const conversationsRef = useRef(conversations);
+  const prevOnline = useRef([]);
+  const typingTimeout = useRef(null);
+  const listRef = useRef(null);
+  const endRef = useRef(null);
+  const stickToBottom = useRef(true);
+  const menuRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
   useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
 
-  const prevOnlineUserIds = useRef([]);
+  const activeItem =
+    activeChat?.type === "project" ? rooms.find((r) => r.id === activeChat.id)
+    : activeChat?.type === "group" ? groups.find((g) => g.id === activeChat.id)
+    : conversations.find((c) => c.id === activeChat?.id);
 
-  const activeItem = activeChatRef.current?.type === "project"
-    ? rooms.find((room) => room.id === activeChat.id)
-    : activeChat?.type === "group"
-    ? groups.find((g) => g.id === activeChat.id)
-    : conversations.find((conversation) => conversation.id === activeChat?.id);
-
-  async function loadSidebar() {
-    const [conversationResponse, projectResponse, callResponse, groupResponse] = await Promise.all([
+  // ── Data loading ───────────────────────────────────────────────────────────
+  async function loadSidebar(select) {
+    const [conv, proj, calls, grp] = await Promise.all([
       api.get("/chat/conversations"),
       api.get("/projects"),
       api.get("/calls/history"),
       api.get("/groups").catch(() => ({ data: { groups: [] } }))
     ]);
-
-    const nextConversations = conversationResponse.data.conversations || [];
-    const nextRooms = (projectResponse.data.projects || [])
-      .filter((project) => project.isMember)
-      .map((project) => ({ ...project, unreadCount: project.unreadCount || 0 }));
-    const nextGroups = groupResponse.data.groups || [];
-
+    const nextConversations = conv.data.conversations || [];
+    const nextRooms = (proj.data.projects || []).filter((p) => p.isMember).map((p) => ({ ...p, unreadCount: 0 }));
+    const nextGroups = grp.data.groups || [];
     setConversations(nextConversations);
     setRooms(nextRooms);
     setGroups(nextGroups);
-    setCallHistory(callResponse.data.calls || []);
+    setCallHistory(calls.data.calls || []);
+    // Seed presence from the API; live "presence:update" events keep it current.
+    const initiallyOnline = nextConversations.filter((c) => c.isOnline).map((c) => c.id);
+    setOnlineUserIds((ids) => [...new Set([...ids, ...initiallyOnline])]);
+    if (!prevOnline.current.length) prevOnline.current = initiallyOnline;
+    setLoaded(true);
 
     setActiveChat((current) => {
-      if (current && (
-        (current.type === "direct" && nextConversations.some((item) => item.id === current.id)) ||
-        (current.type === "project" && nextRooms.some((item) => item.id === current.id)) ||
-        (current.type === "group" && nextGroups.some((item) => item.id === current.id))
-      )) return current;
+      if (select) return select;
+      const exists = current && (
+        (current.type === "direct" && nextConversations.some((c) => c.id === current.id)) ||
+        (current.type === "project" && nextRooms.some((r) => r.id === current.id)) ||
+        (current.type === "group" && nextGroups.some((g) => g.id === current.id))
+      );
+      if (exists) return current;
       if (nextConversations[0]) return { type: "direct", id: nextConversations[0].id };
+      if (nextGroups[0]) return { type: "group", id: nextGroups[0].id };
       if (nextRooms[0]) return { type: "project", id: nextRooms[0].id };
       return null;
     });
   }
 
-  async function loadMessages(nextActiveChat) {
-    if (!nextActiveChat) { setMessages([]); return; }
-    isInitialLoad.current = true;
-    prevMessageCount.current = 0;
-    setShouldAutoScroll(false);
-
-    if (nextActiveChat.type === "direct") {
-      const { data } = await api.get(`/chat/messages/${nextActiveChat.id}`);
-      setMessages(data.messages || []);
-      await api.post(`/chat/read/${nextActiveChat.id}`);
-      socket.emit("direct:join", { otherUserId: nextActiveChat.id }); // JOIN THE ROOM
-      socket.emit("direct:read", { otherUserId: nextActiveChat.id });
-      setConversations((current) => current.map((conversation) => conversation.id === nextActiveChat.id ? { ...conversation, unreadCount: 0 } : conversation));
-      return;
+  async function loadMessages(chat) {
+    if (!chat) return setMessages([]);
+    stickToBottom.current = true;
+    try {
+      if (chat.type === "direct") {
+        const { data } = await api.get(`/chat/messages/${chat.id}`);
+        setMessages(data.messages || []);
+        socket.emit("direct:join", { otherUserId: chat.id });
+        socket.emit("direct:read", { otherUserId: chat.id });
+        api.post(`/chat/read/${chat.id}`).catch(() => {});
+        setConversations((list) => list.map((c) => (c.id === chat.id ? { ...c, unreadCount: 0 } : c)));
+      } else if (chat.type === "group") {
+        const { data } = await api.get(`/groups/${chat.id}/messages`);
+        socket.emit("group:join", { groupId: chat.id });
+        setMessages(data.messages || []);
+        setGroups((list) => list.map((g) => (g.id === chat.id ? { ...g, unreadCount: 0 } : g)));
+      } else {
+        const { data } = await api.get(`/projects/${chat.id}/messages`);
+        socket.emit("project:join", { projectId: chat.id });
+        setMessages(data.messages || []);
+        setRooms((list) => list.map((r) => (r.id === chat.id ? { ...r, unreadCount: 0 } : r)));
+      }
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Could not load messages"));
+      setMessages([]);
     }
-
-    if (nextActiveChat.type === "group") {
-      const { data } = await api.get(`/groups/${nextActiveChat.id}/messages`);
-      socket.emit("group:join", { groupId: nextActiveChat.id }); // JOIN THE ROOM
-      setMessages(data.messages || []);
-      return;
-    }
-
-    const { data } = await api.get(`/projects/${nextActiveChat.id}/messages`);
-    socket.emit("project:join", { projectId: nextActiveChat.id }); // JOIN THE ROOM
-    setMessages(data.messages || []);
-    setRooms((current) => current.map((room) => room.id === nextActiveChat.id ? { ...room, unreadCount: 0 } : room));
-    
-    // Explicitly scroll to bottom after messages load
-    setTimeout(() => {
-      if (messageEndRef.current) messageEndRef.current.scrollIntoView({ behavior: "instant" });
-    }, 100);
   }
 
   useEffect(() => {
-    loadSidebar();
+    loadSidebar().catch((error) => {
+      toast.error(apiErrorMessage(error, "Could not load chats"));
+      setLoaded(true);
+    });
   }, []);
 
   useEffect(() => {
-    if (mode === "direct" && conversations.length && activeChat?.type !== "direct") {
-      setActiveChat({ type: "direct", id: conversations[0].id });
-    }
-    if (mode === "project" && rooms.length && activeChat?.type !== "project") {
-      setActiveChat({ type: "project", id: rooms[0].id });
-    }
-    if (mode === "group" && groups.length && activeChat?.type !== "group") {
-      setActiveChat({ type: "group", id: groups[0].id });
-    }
-  }, [mode, conversations, rooms, groups, activeChat]);
+    setTypingLabel("");
+    setShowEmoji(false);
+    setMenuOpen(false);
+    loadMessages(activeChat);
+  }, [activeChat?.type, activeChat?.id]);
 
+  // ── Realtime ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    socket.auth = { token: localStorage.getItem("vitap_connect_token") };
     if (!socket.connected) socket.connect();
     socket.emit("presence:join", { userName: user.name });
 
-    const handlePresence = ({ userIds }) => {
-      const ids = userIds || [];
-      const newlyOnline = ids.filter(id => !prevOnlineUserIds.current.includes(id) && id !== user.id);
-      
-      if (newlyOnline.length > 0) {
-        newlyOnline.forEach(id => {
-          const friend = conversations.find(c => c.id === id);
-          if (friend) toast.success(`${friend.name} is now online`, { icon: "🟢", duration: 3000 });
-        });
-      }
+    const isActive = (type, id) => activeChatRef.current?.type === type && activeChatRef.current.id === id;
 
-      prevOnlineUserIds.current = ids;
-      setOnlineUserIds(ids);
-      setConversations((current) => current.map((conversation) => ({ ...conversation, isOnline: ids.includes(conversation.id) })));
+    const onPresence = ({ userIds = [] }) => {
+      userIds
+        .filter((id) => !prevOnline.current.includes(id) && id !== user.id)
+        .forEach((id) => {
+          const friend = conversationsRef.current.find((c) => c.id === id);
+          if (friend && prevOnline.current.length) toast(`${friend.name} is online`, { icon: "●", duration: 2500 });
+        });
+      prevOnline.current = userIds;
+      setOnlineUserIds(userIds);
     };
 
-    const handleDirectMessage = (message) => {
-      const currentUser = userRef.current;
-      if (!currentUser) return;
-      
-      const otherUserId = message.senderId === currentUser.id ? message.recipientId : message.senderId;
-      const isActive = activeChatRef.current?.type === "direct" && activeChatRef.current.id === otherUserId;
-
-      setConversations((current) => {
-        const exists = current.some((conversation) => conversation.id === otherUserId);
-        const updated = current.map((conversation) => {
-          if (conversation.id !== otherUserId) return conversation;
-          return {
-            ...conversation,
+    const onDirect = (message) => {
+      const me = userRef.current;
+      const otherId = message.senderId === me.id ? message.recipientId : message.senderId;
+      const active = isActive("direct", otherId);
+      setConversations((list) =>
+        list
+          .map((c) => (c.id !== otherId ? c : {
+            ...c,
             lastMessage: message.text,
             lastMessageAt: message.createdAt,
-            unreadCount: isActive || message.senderId === currentUser.id ? 0 : (conversation.unreadCount || 0) + 1
-          };
-        });
-        return [...updated].sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0));
-      });
-
-      if (isActive) {
-        setMessages((current) => {
-          const msgId = message._id || message.id;
-          const exists = current.some(m => (m._id || m.id) === msgId);
-          if (exists) return current;
-          return [...current, message];
-        });
-        if (message.senderId !== currentUser.id) {
-          api.post(`/chat/read/${otherUserId}`).catch(() => {});
-          socket.emit("direct:read", { otherUserId });
+            unreadCount: active || message.senderId === me.id ? 0 : (c.unreadCount || 0) + 1
+          }))
+          .sort((a, b) => new Date(b.lastMessageAt || 0) - new Date(a.lastMessageAt || 0))
+      );
+      if (active) {
+        setMessages((list) => appendUnique(list, message));
+        if (message.senderId !== me.id) {
+          setTypingLabel("");
+          api.post(`/chat/read/${otherId}`).catch(() => {});
+          socket.emit("direct:read", { otherUserId: otherId });
         }
       }
     };
 
-    const handleDirectDelivered = ({ conversationId: id, recipientId }) => {
-      const currentActive = activeChatRef.current;
-      const currentUser = userRef.current;
-      if (currentActive?.type === "direct" && conversationId(currentUser?.id, currentActive.id) === id) {
-        setMessages((current) => updateMessageStatus(current, (message) => message.senderId === currentUser?.id, (message) => ({
-          ...message,
-          deliveredTo: Array.from(new Set([...(message.deliveredTo || []), recipientId]))
-        })));
+    const patchMine = (patch) => setMessages((list) => list.map((m) => (m.senderId === userRef.current.id ? patch(m) : m)));
+    const onDelivered = ({ conversationId: id, recipientId }) => {
+      const chat = activeChatRef.current;
+      if (chat?.type === "direct" && conversationId(userRef.current.id, chat.id) === id) {
+        patchMine((m) => ({ ...m, deliveredTo: [...new Set([...(m.deliveredTo || []), recipientId])] }));
+      }
+    };
+    const onRead = ({ conversationId: id, readerId }) => {
+      const chat = activeChatRef.current;
+      if (chat?.type === "direct" && conversationId(userRef.current.id, chat.id) === id) {
+        patchMine((m) => ({ ...m, deliveredTo: [...new Set([...(m.deliveredTo || []), readerId])], readBy: [...new Set([...(m.readBy || []), readerId])] }));
       }
     };
 
-    const handleDirectRead = ({ conversationId: id, readerId }) => {
-      const currentActive = activeChatRef.current;
-      const currentUser = userRef.current;
-      if (currentActive?.type === "direct" && conversationId(currentUser?.id, currentActive.id) === id) {
-        setMessages((current) => updateMessageStatus(current, (message) => message.senderId === currentUser?.id, (message) => ({
-          ...message,
-          deliveredTo: Array.from(new Set([...(message.deliveredTo || []), readerId])),
-          readBy: Array.from(new Set([...(message.readBy || []), readerId]))
-        })));
-        setConversations((current) => current.map((conversation) => conversation.id === readerId ? { ...conversation, unreadCount: 0 } : conversation));
+    const roomHandler = (type, key, setList) => (message) => {
+      if (isActive(type, message[key])) {
+        setMessages((list) => appendUnique(list, message));
+        if (message.senderId !== userRef.current.id) setTypingLabel("");
+      } else if (message.senderId !== userRef.current.id) {
+        setList((list) => list.map((item) => (item.id === message[key] ? { ...item, unreadCount: (item.unreadCount || 0) + 1 } : item)));
       }
     };
+    const onProject = roomHandler("project", "projectId", setRooms);
+    const onGroup = roomHandler("group", "groupId", setGroups);
 
-    const handleProjectMessage = (message) => {
-      const currentActive = activeChatRef.current;
-      const currentUser = userRef.current;
-      const isActive = currentActive?.type === "project" && currentActive.id === message.projectId;
-      if (isActive) {
-        setMessages((current) => {
-          const msgId = message._id || message.id;
-          const exists = current.some(m => (m._id || m.id) === msgId);
-          if (exists) return current;
-          return [...current, message];
-        });
-      } else if (message.senderId !== currentUser?.id) {
-        setRooms((current) => current.map((room) => room.id === message.projectId ? { ...room, unreadCount: (room.unreadCount || 0) + 1 } : room));
+    const typingHandler = (type, key) => (payload) => {
+      if (isActive(type, payload[key]) && payload.fromUserId !== userRef.current.id) {
+        setTypingLabel(payload.isTyping ? payload.userName : "");
       }
     };
+    const onDirectTyping = typingHandler("direct", "fromUserId");
+    const onProjectTyping = typingHandler("project", "projectId");
+    const onGroupTyping = typingHandler("group", "groupId");
 
-    const handleDirectTyping = ({ fromUserId, userName, isTyping }) => {
-      const currentActive = activeChatRef.current;
-      if (currentActive?.type === "direct" && currentActive.id === fromUserId) {
-        setTypingLabel(isTyping ? `${userName} is typing...` : "");
-      }
-    };
-
-    const handleProjectTyping = ({ projectId, userName, isTyping }) => {
-      const currentActive = activeChatRef.current;
-      if (currentActive?.type === "project" && currentActive.id === projectId) {
-        setTypingLabel(isTyping ? `${userName} is typing in the room...` : "");
-      }
-    };
-
-    const refreshCalls = () => {
-      api.get("/calls/history").then(({ data }) => setCallHistory(data.calls || [])).catch(() => {});
-    };
-
-    const handleGroupMessage = (message) => {
-      const currentActive = activeChatRef.current;
-      const currentUser = userRef.current;
-      const isActive = currentActive?.type === "group" && currentActive.id === message.groupId;
-      if (isActive) {
-        setMessages((current) => {
-          const msgId = message._id || message.id;
-          const exists = current.some(m => (m._id || m.id) === msgId);
-          if (exists) return current;
-          return [...current, message];
-        });
-      } else if (message.senderId !== currentUser?.id) {
-        setGroups((current) => current.map((g) => g.id === message.groupId ? { ...g, unreadCount: (g.unreadCount || 0) + 1 } : g));
-      }
-    };
-
-    const handleGroupTyping = ({ groupId, userName, isTyping }) => {
-      const currentActive = activeChatRef.current;
-      if (currentActive?.type === "group" && currentActive.id === groupId) {
-        setTypingLabel(isTyping ? `${userName} is typing...` : "");
-      }
-    };
-
+    const refreshCalls = () => api.get("/calls/history").then(({ data }) => setCallHistory(data.calls || [])).catch(() => {});
+    const onDeleted = ({ messageId }) => setMessages((list) => list.filter((m) => msgKey(m) !== messageId));
     const onReconnect = () => {
-      const currentActive = activeChatRef.current;
-      if (!currentActive) return;
-      if (currentActive.type === "direct") {
-        socket.emit("direct:join", { otherUserId: currentActive.id });
-      } else if (currentActive.type === "group") {
-        socket.emit("group:join", { groupId: currentActive.id });
-      } else {
-        socket.emit("project:join", { projectId: currentActive.id });
-      }
+      const chat = activeChatRef.current;
+      if (!chat) return;
+      if (chat.type === "direct") socket.emit("direct:join", { otherUserId: chat.id });
+      else if (chat.type === "group") socket.emit("group:join", { groupId: chat.id });
+      else socket.emit("project:join", { projectId: chat.id });
     };
 
-
-    const handleMessageDeleted = ({ messageId }) => {
-      setMessages((current) => current.filter((m) => (m._id || m.id) !== messageId));
+    const handlers = {
+      "presence:update": onPresence,
+      "direct:message": onDirect,
+      "direct:delivered": onDelivered,
+      "direct:read": onRead,
+      "project:message": onProject,
+      "group:message": onGroup,
+      "direct:typing": onDirectTyping,
+      "project:typing": onProjectTyping,
+      "group:typing": onGroupTyping,
+      "chat:message_deleted": onDeleted,
+      "call:invite-response": refreshCalls,
+      "call:missed": refreshCalls,
+      "call:invite": refreshCalls,
+      connect: onReconnect
     };
+    Object.entries(handlers).forEach(([event, fn]) => socket.on(event, fn));
+    return () => Object.entries(handlers).forEach(([event, fn]) => socket.off(event, fn));
+  }, [socket, user.id, user.name]);
 
-    socket.on("presence:update", handlePresence);
-    socket.on("direct:message", handleDirectMessage);
-    socket.on("direct:delivered", handleDirectDelivered);
-    socket.on("direct:read", handleDirectRead);
-    socket.on("project:message", handleProjectMessage);
-    socket.on("group:message", handleGroupMessage);
-    socket.on("direct:typing", handleDirectTyping);
-    socket.on("project:typing", handleProjectTyping);
-    socket.on("group:typing", handleGroupTyping);
-    socket.on("chat:message_deleted", handleMessageDeleted);
-    socket.on("call:invite-response", refreshCalls);
-    socket.on("call:missed", refreshCalls);
-    socket.on("call:invite", refreshCalls);
-    socket.on("connect", onReconnect); // Handle re-joins on reconnect
+  // ── Scrolling ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (stickToBottom.current) endRef.current?.scrollIntoView({ block: "end" });
+  }, [messages, typingLabel]);
 
-    return () => {
-      socket.off("presence:update", handlePresence);
-      socket.off("direct:message", handleDirectMessage);
-      socket.off("direct:delivered", handleDirectDelivered);
-      socket.off("direct:read", handleDirectRead);
-      socket.off("project:message", handleProjectMessage);
-      socket.off("group:message", handleGroupMessage);
-      socket.off("direct:typing", handleDirectTyping);
-      socket.off("project:typing", handleProjectTyping);
-      socket.off("group:typing", handleGroupTyping);
-      socket.off("chat:message_deleted", handleMessageDeleted);
-      socket.off("call:invite-response", refreshCalls);
-      socket.off("call:missed", refreshCalls);
-      socket.off("call:invite", refreshCalls);
-      socket.off("connect", onReconnect);
-    };
-  }, [activeChat, socket, user.id, user.name]);
+  function onScroll() {
+    const el = listRef.current;
+    if (el) stickToBottom.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 120;
+  }
 
   useEffect(() => {
-    if (!activeChat) return;
-    setTypingLabel("");
-    setShowEmojiPicker(false);
-
-    if (activeChat.type === "direct") {
-      socket.emit("direct:join", { otherUserId: activeChat.id });
-    } else if (activeChat.type === "group") {
-      socket.emit("group:join", { groupId: activeChat.id });
-    } else {
-      socket.emit("project:join", { projectId: activeChat.id });
-    }
-
-    loadMessages(activeChat);
-  }, [activeChat, socket]);
-
-  useEffect(() => {
-    const count = messages.length;
-    if (isInitialLoad.current) {
-      // First time messages arrive after switching chat — mark done, don't scroll.
-      isInitialLoad.current = false;
-      prevMessageCount.current = count;
-      return;
-    }
-    // A new message was added — scroll only if user is near the bottom.
-    if (count > prevMessageCount.current && shouldAutoScroll && messageEndRef.current) {
-      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-    prevMessageCount.current = count;
-  }, [messages]);
-
-  useEffect(() => {
-    // Scroll down for typing indicator when near bottom
-    if (typingLabel && shouldAutoScroll && messageEndRef.current) {
-      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [typingLabel, shouldAutoScroll]);
-
-  const handleScroll = () => {
-    if (messagesContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
-      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100; // 100px threshold
-      setShouldAutoScroll(isNearBottom);
-    }
-  };
-
-  // Close header dropdown if clicked outside
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target)) {
-        setHeaderMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    const close = (e) => menuRef.current && !menuRef.current.contains(e.target) && setMenuOpen(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  function emitTyping(nextText) {
-    const isDirect = activeChat?.type === "direct";
-    const payload = isDirect ? { recipientId: activeChat?.id, isTyping: nextText.trim().length > 0 } : { projectId: activeChat?.id, isTyping: nextText.trim().length > 0 };
-
-    if (isDirect) {
-      socket.emit("direct:typing", payload);
-    } else if (activeChat?.type === "project") {
-      socket.emit("project:typing", payload);
-    }
-
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = window.setTimeout(() => {
-      if (isDirect) {
-        socket.emit("direct:typing", { recipientId: activeChat?.id, isTyping: false });
-      } else if (activeChat?.type === "project") {
-        socket.emit("project:typing", { projectId: activeChat?.id, isTyping: false });
-      }
-    }, 1200);
+  // ── Sending ────────────────────────────────────────────────────────────────
+  function emitTyping(isTyping) {
+    const chat = activeChatRef.current;
+    if (!chat) return;
+    if (chat.type === "direct") socket.emit("direct:typing", { recipientId: chat.id, isTyping });
+    else if (chat.type === "group") socket.emit("group:typing", { groupId: chat.id, isTyping });
+    else socket.emit("project:typing", { projectId: chat.id, isTyping });
   }
 
-  function handleInputChange(event) {
-    const nextText = event.target.value;
-    setText(nextText);
-    if (activeChat) emitTyping(nextText);
+  function onType(value) {
+    setText(value);
+    emitTyping(value.trim().length > 0);
+    clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => emitTyping(false), 1200);
   }
 
-  function addEmoji(emoji) {
-    const next = `${text}${emoji}`;
-    setText(next);
-    emitTyping(next);
-  }
-
-  function startPrivateCall(callType) {
-    if (activeChat?.type !== "direct" || !activeItem) return;
-    const roomId = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const title = `${user.name} and ${activeItem.name}`;
-    window.dispatchEvent(new CustomEvent("vitap:start-call", {
-      detail: {
-        roomId,
-        toUserId: activeItem.id,
-        toUserName: activeItem.name,
-        callType,
-        title
-      }
-    }));
-    toast.success(`${callType === "video" ? "Video" : "Voice"} call invitation sent to ${activeItem.name}`);
-  }
-
-  function sendMessage() {
+  function send(e) {
+    e?.preventDefault();
     const value = text.trim();
     if (!activeChat || !value) return;
-
-    if (activeChat.type === "direct") {
-      socket.emit("direct:message", { recipientId: activeChat.id, text: value });
-    } else {
-      socket.emit("project:message", { projectId: activeChat.id, text: value });
-    }
-
-    // New message sent — enable auto-scroll
-    setShouldAutoScroll(true);
+    if (activeChat.type === "direct") socket.emit("direct:message", { recipientId: activeChat.id, text: value });
+    else if (activeChat.type === "group") socket.emit("group:message", { groupId: activeChat.id, text: value });
+    else socket.emit("project:message", { projectId: activeChat.id, text: value });
+    stickToBottom.current = true;
     setText("");
-    setTypingLabel("");
-    setShowEmojiPicker(false);
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    
-    // Explicitly notify others that typing has stopped after sending
-    if (activeChat.type === "direct") {
-      socket.emit("direct:typing", { recipientId: activeChat.id, isTyping: false });
-    } else if (activeChat.type === "project") {
-      socket.emit("project:typing", { projectId: activeChat.id, isTyping: false });
-    } else if (activeChat.type === "group") {
-      socket.emit("group:typing", { groupId: activeChat.id, isTyping: false });
-    }
+    setShowEmoji(false);
+    clearTimeout(typingTimeout.current);
+    emitTyping(false);
+    inputRef.current?.focus();
   }
 
-  async function deleteMessage(messageId) {
+  async function deleteMessage(id) {
     try {
-      await api.delete(`/chat/messages/${messageId}`);
-      setMessages((current) => current.filter((m) => (m._id || m.id) !== messageId));
-      toast.success("Message deleted");
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete message");
+      await api.delete(`/chat/messages/${id}`);
+      setMessages((list) => list.filter((m) => msgKey(m) !== id));
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Could not delete message"));
     }
   }
 
-  async function blockAndClose() {
-    if (!activeItem) return;
+  async function blockActive() {
+    if (!activeItem || !window.confirm(`Block ${activeItem.name}? You won't be able to message each other.`)) return;
     try {
       await api.post("/connections/block", { friendId: activeItem.id });
-      toast.success(`${activeItem.name} has been blocked`);
-      setHeaderMenuOpen(false);
-      // Remove from conversations list
-      setConversations((current) => current.filter((c) => c.id !== activeItem.id));
+      toast.success(`${activeItem.name} blocked`);
+      setConversations((list) => list.filter((c) => c.id !== activeItem.id));
       setActiveChat(null);
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to block user");
+      setShowList(true);
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Could not block user"));
     }
+  }
+
+  function startPrivateCall(callType, target = activeItem) {
+    if (!target) return;
+    const roomId = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    window.dispatchEvent(new CustomEvent("vitap:start-call", {
+      detail: { roomId, toUserId: target.id, toUserName: target.name, callType, title: `${user.name} and ${target.name}` }
+    }));
+  }
+
+  function openRoomCall(callType) {
+    if (!activeItem?.callRoomId) return;
+    if ((activeItem.members || []).length < 2) return toast.error("Calls need at least one teammate in the project.");
+    window.open(`/project-call/${activeItem.callRoomId}?type=${callType}&project=${encodeURIComponent(activeItem.title)}`, "_blank", "noopener,noreferrer");
+  }
+
+  function select(type, id) {
+    setActiveChat({ type, id });
+    setShowList(false);
+  }
+
+  // ── Render helpers ─────────────────────────────────────────────────────────
+  const unreadBy = {
+    direct: conversations.reduce((s, c) => s + (c.unreadCount || 0), 0),
+    group: groups.reduce((s, g) => s + (g.unreadCount || 0), 0),
+    project: rooms.reduce((s, r) => s + (r.unreadCount || 0), 0)
+  };
+  const isOnline = (id) => onlineUserIds.includes(id);
+  const title = activeItem?.title || activeItem?.name;
+  const subtitle = !activeItem ? ""
+    : typingLabel ? `${activeChat.type === "direct" ? "" : `${typingLabel} is `}typing…`
+    : activeChat.type === "direct" ? (isOnline(activeItem.id) ? "Online" : "Offline")
+    : `${activeItem.members?.length || 0} members`;
+
+  function renderList() {
+    if (!loaded) return <p className="px-4 py-6 text-sm text-ink-3">Loading…</p>;
+
+    if (mode === "direct") {
+      if (!conversations.length) return <div className="p-4"><EmptyState icon={MessageSquare} title="No chats yet" action={<Link to="/discover" className="btn btn-secondary btn-sm">Find people</Link>}>You can message anyone you&apos;re connected with.</EmptyState></div>;
+      return conversations.map((c) => (
+        <ListItem
+          key={c.id}
+          active={activeChat?.type === "direct" && activeChat.id === c.id}
+          onClick={() => select("direct", c.id)}
+          avatar={<Avatar name={c.name} src={c.avatarUrl} online={isOnline(c.id)} />}
+          title={c.name}
+          subtitle={c.lastMessage || "Say hello"}
+          meta={timeAgo(c.lastMessageAt)}
+          unread={c.unreadCount}
+        />
+      ));
+    }
+
+    if (mode === "group") {
+      return (
+        <>
+          <div className="border-b border-line p-3">
+            <button type="button" className="btn btn-secondary btn-sm w-full" onClick={() => setGroupDialog(true)}><Plus size={14} /> New group</button>
+          </div>
+          {!groups.length ? (
+            <p className="px-4 py-6 text-sm text-ink-3">No groups yet. Create one with a few connections.</p>
+          ) : groups.map((g) => (
+            <ListItem key={g.id} active={activeChat?.type === "group" && activeChat.id === g.id} onClick={() => select("group", g.id)} avatar={<RoomIcon type="group" />} title={g.name} subtitle={`${g.members?.length || 0} members`} unread={g.unreadCount} />
+          ))}
+        </>
+      );
+    }
+
+    if (mode === "project") {
+      if (!rooms.length) return <div className="p-4"><EmptyState icon={FolderKanban} title="No team rooms" action={<Link to="/collaborations" className="btn btn-secondary btn-sm">Browse projects</Link>}>Every project you join gets a chat room here.</EmptyState></div>;
+      return rooms.map((r) => (
+        <ListItem key={r.id} active={activeChat?.type === "project" && activeChat.id === r.id} onClick={() => select("project", r.id)} avatar={<RoomIcon type="project" />} title={r.title} subtitle={`${r.type || "Project"} · ${r.members?.length || 0} members`} unread={r.unreadCount} />
+      ));
+    }
+
+    if (!callHistory.length) return <p className="px-4 py-6 text-sm text-ink-3">No calls yet. Start one from any direct chat.</p>;
+    return callHistory.map((call) => {
+      const missed = call.status === "missed" || call.status === "declined";
+      const Icon = missed ? PhoneMissed : call.direction === "outgoing" ? PhoneOutgoing : PhoneIncoming;
+      const friend = conversations.find((c) => c.id === call.counterpartId);
+      return (
+        <div key={call._id} className="flex items-center gap-3 border-b border-line px-4 py-3">
+          <Avatar name={call.counterpartName} src={friend?.avatarUrl} size="sm" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{call.counterpartName}</p>
+            <p className={`flex items-center gap-1 text-xs ${missed ? "text-bad" : "text-ink-3"}`}>
+              <Icon size={12} /> {call.callType} · {missed ? call.status : formatDuration(call.durationSeconds)} · {timeAgo(call.startedAt)}
+            </p>
+          </div>
+          {friend && (
+            <button type="button" className="icon-btn" onClick={() => startPrivateCall(call.callType, friend)} aria-label={`Call ${friend.name}`}>
+              {call.callType === "video" ? <Video size={16} /> : <Phone size={16} />}
+            </button>
+          )}
+        </div>
+      );
+    });
+  }
+
+  function renderMessages() {
+    let lastDay = null;
+    return messages.map((m, i) => {
+      const mine = m.senderId === user.id;
+      const prev = messages[i - 1];
+      const day = dayLabel(m.createdAt);
+      const showDay = day !== lastDay;
+      lastDay = day;
+      const grouped = !showDay && prev?.senderId === m.senderId && new Date(m.createdAt) - new Date(prev.createdAt) < 300000;
+      const canDelete = msgKey(m) && activeChat.type !== "group" && (mine || user.role === "admin");
+
+      return (
+        <div key={msgKey(m) || `${m.createdAt}-${i}`}>
+          {showDay && (
+            <div className="my-5 flex items-center gap-3">
+              <span className="h-px flex-1 bg-line" />
+              <span className="eyebrow">{day}</span>
+              <span className="h-px flex-1 bg-line" />
+            </div>
+          )}
+          <div className={`group flex items-end gap-2 ${mine ? "justify-end" : "justify-start"} ${grouped ? "mt-0.5" : "mt-3"}`}>
+            {!mine && (activeChat.type === "direct" ? null : grouped ? <span className="w-8" /> : <Avatar name={m.senderName} size="sm" />)}
+            {mine && canDelete && (
+              <button type="button" onClick={() => deleteMessage(msgKey(m))} className="mb-1 text-ink-3 opacity-0 transition-opacity hover:text-bad group-hover:opacity-100 focus:opacity-100" aria-label="Delete message">
+                <Trash2 size={13} />
+              </button>
+            )}
+            <div className={`max-w-[78%] sm:max-w-md ${mine ? "items-end" : "items-start"} flex flex-col`}>
+              {!mine && !grouped && activeChat.type !== "direct" && <p className="mb-1 px-1 text-xs font-semibold text-ink-2">{m.senderName}</p>}
+              <div className={`whitespace-pre-wrap break-words rounded-lg px-3.5 py-2 text-[15px] leading-snug ${mine ? "rounded-br-sm bg-ink text-bg" : "rounded-bl-sm border border-line bg-surface"}`}>
+                {m.text}
+              </div>
+              {(!messages[i + 1] || messages[i + 1].senderId !== m.senderId) && (
+                <p className={`mt-1 flex items-center gap-1 px-1 font-mono text-[10px] text-ink-3 ${mine ? "justify-end" : ""}`}>
+                  {clockTime(m.createdAt)}
+                  {mine && activeChat.type === "direct" && <ReadStatus message={m} otherUserId={activeChat.id} />}
+                </p>
+              )}
+            </div>
+            {!mine && canDelete && (
+              <button type="button" onClick={() => deleteMessage(msgKey(m))} className="mb-1 text-ink-3 opacity-0 transition-opacity hover:text-bad group-hover:opacity-100" aria-label="Delete message">
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    });
   }
 
   return (
-    <div className="flex overflow-hidden bg-slate-50 dark:bg-slate-900" style={{ height: "calc(100dvh - 64px)" }}>
-      {/* Unified Responsive Sidebar */}
-      <div className={`w-full md:w-80 border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 flex-col ${showMobileList ? "flex" : "hidden md:flex"}`}>
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Messages</h1>
-          <div className="flex gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl">
-            <button
-              type="button"
-              className={`p-2 rounded-lg transition-all ${mode === "direct" ? "bg-white text-indigo-600 dark:bg-slate-800 dark:text-indigo-400 border border-slate-200 dark:border-white/5" : "text-slate-500 hover:text-slate-700"}`}
-              onClick={() => setMode("direct")}
-              title="Direct Messages"
-            >
-              <MessageSquare size={18} />
-            </button>
-            <button
-              type="button"
-              className={`p-2 rounded-lg transition-all ${mode === "project" ? "bg-white text-indigo-600 dark:bg-slate-800 dark:text-indigo-400 border border-slate-200 dark:border-white/5" : "text-slate-500 hover:text-slate-700"}`}
-              onClick={() => setMode("project")}
-              title="Collaborations"
-            >
-              <Users size={18} />
-            </button>
-          </div>
+    <div className="flex h-[calc(100dvh-7.5rem)] overflow-hidden border-line bg-surface lg:h-dvh">
+      {/* Sidebar */}
+      <aside className={`w-full flex-col border-r border-line md:flex md:w-80 ${showList ? "flex" : "hidden"}`}>
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-4">
+          <h1 className="text-xl font-semibold">Messages</h1>
         </div>
-
-        <div className="flex-1 overflow-y-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={mode}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              transition={{ duration: 0.2 }}
+        <div className="grid shrink-0 grid-cols-4 border-b border-line">
+          {TABS.map(([key, label, Icon]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setMode(key)}
+              className={`relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${mode === key ? "text-ink" : "text-ink-3 hover:text-ink"}`}
             >
-              {mode === "direct" && conversations.length === 0 && (
-                <div className="p-10 text-center text-slate-500">
-                  <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                    <MessageSquare size={32} className="opacity-50" />
-                  </div>
-                  <p className="font-bold">No chats yet</p>
-                  <p className="text-xs mt-1">Connect with students to start a conversation.</p>
-                </div>
-              )}
-              {mode === "project" && rooms.length === 0 && (
-                <div className="p-10 text-center text-slate-500">
-                  <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                    <Users size={32} className="opacity-50" />
-                  </div>
-                  <p className="font-bold">No ventures</p>
-                  <p className="text-xs mt-1">Join a collaboration room to find your team.</p>
-                </div>
-              )}
-
-              {mode === "direct" && conversations.map((conversation, idx) => {
-                const active = activeChat?.type === "direct" && activeChat.id === conversation.id;
-                const unreadCount = conversation.unreadCount || 0;
-                return (
-                  <motion.button
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    type="button"
-                    key={conversation.id}
-                    className={`w-full p-4 text-left border-l-4 transition-all ${active ? "bg-indigo-50/50 border-indigo-600 dark:bg-indigo-600/10" : "border-transparent border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5"}`}
-                    onClick={() => { setActiveChat({ type: "direct", id: conversation.id }); setShowMobileList(false); }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <img 
-                          className="w-12 h-12 rounded-2xl object-cover border border-slate-200 dark:border-white/10" 
-                          src={conversation.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(conversation.name)}`} 
-                          alt={conversation.name} 
-                        />
-                        {onlineUserIds.includes(conversation.id) && (
-                          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className={`font-bold truncate ${active ? "text-indigo-600 dark:text-indigo-400" : "text-slate-900 dark:text-white"}`}>
-                            {conversation.name}
-                          </p>
-                          {conversation.lastMessageAt && (
-                            <span className="text-[10px] uppercase font-bold text-slate-400">
-                              {formatTimestamp(conversation.lastMessageAt)}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <p className="text-xs text-slate-500 truncate pr-4">
-                            {conversation.lastMessage || "Start a conversation"}
-                          </p>
-                          {unreadCount > 0 && (
-                            <span className="bg-indigo-600 text-white text-[10px] font-black rounded-lg px-2 py-0.5">
-                              {unreadCount > 99 ? "99+" : unreadCount}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.button>
-                );
-              })}
-
-              {mode === "project" && rooms.map((room, idx) => {
-                const active = activeChat?.type === "project" && activeChat.id === room.id;
-                const unreadCount = room.unreadCount || 0;
-                return (
-                  <motion.button
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    type="button"
-                    key={room.id}
-                    className={`w-full p-4 text-left border-l-4 transition-all ${active ? "bg-indigo-50/50 border-indigo-600 dark:bg-indigo-600/10" : "border-transparent border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5"}`}
-                    onClick={() => { setActiveChat({ type: "project", id: room.id }); setShowMobileList(false); }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-slate-100 dark:bg-white/5 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-white/10">
-                        <Users size={18} className="text-slate-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className={`font-bold truncate ${active ? "text-indigo-600 dark:text-indigo-400" : "text-slate-900 dark:text-white"}`}>
-                            {room.title}
-                          </p>
-                          {unreadCount > 0 && (
-                            <span className="bg-indigo-600 text-white text-[10px] font-black rounded-lg px-2 py-0.5">
-                              {unreadCount > 99 ? "99+" : unreadCount}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 truncate mt-0.5 uppercase tracking-wider font-bold">
-                          {room.type || "Collaboration"} • {room.members?.length || 0} members
-                        </p>
-                      </div>
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </motion.div>
-          </AnimatePresence>
+              <Icon size={16} />
+              {label}
+              {unreadBy[key] > 0 && <span className="absolute right-3 top-2 h-1.5 w-1.5 rounded-full bg-accent" />}
+              {mode === key && <span className="absolute inset-x-3 bottom-0 h-0.5 bg-accent" />}
+            </button>
+          ))}
         </div>
-      </div>
+        <div className="scrollbar-thin flex-1 overflow-y-auto">{renderList()}</div>
+      </aside>
 
-      {/* Chat Area - ensuring flex-grow and proper vertical distribution */}
-      <div className={`flex-1 flex-col min-w-0 bg-white dark:bg-slate-900 ${!showMobileList ? "flex" : "hidden md:flex"}`}>
+      {/* Conversation */}
+      <section className={`min-w-0 flex-1 flex-col bg-bg md:flex ${showList ? "hidden" : "flex"}`}>
         {activeItem ? (
           <>
-            {/* Chat Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-              <div className="flex items-center gap-3">
-                {/* Mobile back button */}
-                <button
-                  type="button"
-                  className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                  onClick={() => setShowMobileList(true)}
-                >
-                  <ArrowLeft size={20} />
-                </button>
-                <div className="w-10 h-10 flex-shrink-0">
-                  {activeChat?.type === "direct" ? (
-                    <img 
-                      className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10" 
-                      src={activeItem.avatarUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(activeItem.name)}`} 
-                      alt={activeItem.name} 
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
-                      <Users size={20} className="text-slate-600 dark:text-slate-300" />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h2 className="font-semibold text-slate-900 dark:text-white truncate">
-                    {activeItem.title || activeItem.name}
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    {activeChat?.type === "direct"
-                      ? (onlineUserIds.includes(activeItem.id) ? "online" : "offline")
-                      : `${activeItem.members?.length || 0} members`}
-                  </p>
-                </div>
+            <header className="flex h-16 shrink-0 items-center gap-3 border-b border-line bg-surface px-3 sm:px-4">
+              <button type="button" className="icon-btn md:hidden" onClick={() => setShowList(true)} aria-label="Back to list"><ArrowLeft size={18} /></button>
+              {activeChat.type === "direct" ? <Avatar name={activeItem.name} src={activeItem.avatarUrl} online={isOnline(activeItem.id)} /> : <RoomIcon type={activeChat.type} />}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold">{title}</p>
+                <p className={`truncate text-xs ${typingLabel ? "text-accent" : "text-ink-3"}`}>{subtitle}</p>
               </div>
-              {activeChat?.type === "direct" && (
-                <div className="flex gap-2 items-center">
-                  <button
-                    type="button"
-                    className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
-                    onClick={() => startPrivateCall("voice")}
-                  >
-                    <Phone size={20} />
-                  </button>
-                  <button
-                    type="button"
-                    className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
-                    onClick={() => startPrivateCall("video")}
-                  >
-                    <Video size={20} />
-                  </button>
-                  {/* 3-dot header menu */}
-                  <div className="relative" ref={headerMenuRef}>
-                    <button
-                      type="button"
-                      className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg transition-colors border border-transparent hover:border-slate-200 dark:hover:border-white/10"
-                      onClick={() => setHeaderMenuOpen((v) => !v)}
-                    >
-                      <MoreVertical size={20} />
-                    </button>
-                    {headerMenuOpen && (
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        className="absolute right-0 top-10 z-50 w-48 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden"
-                      >
-                        <button
-                          type="button"
-                          className="flex items-center gap-3 w-full px-4 py-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                          onClick={blockAndClose}
-                        >
-                          <ShieldAlert size={16} />
-                          Block User
-                        </button>
-                      </motion.div>
+              {activeChat.type === "direct" && (
+                <>
+                  <button type="button" className="icon-btn" onClick={() => startPrivateCall("voice")} aria-label="Voice call"><Phone size={18} /></button>
+                  <button type="button" className="icon-btn" onClick={() => startPrivateCall("video")} aria-label="Video call"><Video size={18} /></button>
+                  <div className="relative" ref={menuRef}>
+                    <button type="button" className="icon-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="More"><MoreVertical size={18} /></button>
+                    {menuOpen && (
+                      <div className="absolute right-0 z-20 mt-2 w-44 animate-fade-up overflow-hidden rounded-md border border-line bg-surface shadow-pop">
+                        <button type="button" onClick={blockActive} className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-bad hover:bg-bad-soft"><ShieldAlert size={15} /> Block user</button>
+                      </div>
                     )}
                   </div>
-                </div>
+                </>
               )}
-            </div>
-
-            {/* Messages */}
-            <div
-              ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-2"
-              onScroll={handleScroll}
-            >
-              {messages.length === 0 && (
-                <div className="text-center text-slate-500 py-8">
-                  <MessageSquare size={48} className="mx-auto mb-2 opacity-50" />
-                  <p>No messages yet</p>
-                  <p className="text-sm">Start the conversation</p>
-                </div>
+              {activeChat.type === "project" && (
+                <>
+                  <button type="button" className="icon-btn" onClick={() => openRoomCall("voice")} aria-label="Team voice call"><Phone size={18} /></button>
+                  <button type="button" className="icon-btn" onClick={() => openRoomCall("video")} aria-label="Team video call"><Video size={18} /></button>
+                </>
               )}
-              {messages.map((message, index) => {
-                const mine = message.senderId === user.id;
-                const msgId = message._id || message.id;
-                const prevMessage = messages[index - 1];
-                const showAvatar = !prevMessage || prevMessage.senderId !== message.senderId;
-                const showTimestamp = !prevMessage || new Date(message.createdAt) - new Date(prevMessage.createdAt) > 300000; // 5 minutes
+            </header>
 
-                return (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ type: "spring", damping: 20, stiffness: 200 }}
-                    key={`${message.createdAt}-${index}`} 
-                    className={`flex gap-2 px-2 group ${mine ? "justify-end" : "justify-start"}`}
-                  >
-                    {!mine && showAvatar && (
-                      <img 
-                        className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/10 mt-1 flex-shrink-0" 
-                        src={message.senderAvatar || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(message.senderName)}`} 
-                        alt={message.senderName} 
-                      />
-                    )}
-                    {!mine && !showAvatar && <div className="w-8"></div>}
-                    <div className={`max-w-[85%] sm:max-w-xs md:max-w-sm lg:max-w-md ${mine ? "order-1" : "order-2"}`}>
-                      {!mine && showAvatar && (
-                        <p className="text-xs font-bold text-slate-500 mb-1 px-3">
-                          {message.senderName}
-                        </p>
-                      )}
-                      {showTimestamp && (
-                        <p className="text-[10px] uppercase font-black text-slate-400 text-center mb-4 mt-2 tracking-widest">
-                          {new Date(message.createdAt).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "numeric",
-                            minute: "2-digit"
-                          })}
-                        </p>
-                      )}
-                      <div className="flex items-end gap-1">
-                        {/* Delete button — for own messages or admin, shown on hover */}
-                        {msgId && (mine || user.role === "admin") && (
-                          <button
-                            type="button"
-                            title="Delete message"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 flex-shrink-0 mb-1"
-                            onClick={() => deleteMessage(msgId)}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                        <div className={`rounded-2xl px-4 py-2.5 ${mine ? "bg-indigo-600 text-white" : "bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-100 dark:border-white/5"}`}>
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.text}</p>
-                        </div>
-                      </div>
-                      <div className={`flex items-center gap-1 mt-1 text-[10px] font-bold text-slate-400 ${mine ? "justify-end" : "justify-start"}`}>
-                        <span>{formatTimestamp(message.createdAt)}</span>
-                        {mine && activeChat?.type === "direct" && (
-                          <StatusIcon message={message} otherUserId={activeChat.id} />
-                        )}
-                      </div>
-                    </div>
-                    {mine && <div className="w-8"></div>}
-                  </motion.div>
-                );
-              })}
+            <div ref={listRef} onScroll={onScroll} className="scrollbar-thin flex-1 overflow-y-auto px-3 py-4 sm:px-6">
+              {messages.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <p className="font-semibold">No messages yet</p>
+                  <p className="mt-1 text-sm text-ink-3">Start the conversation with {title}.</p>
+                </div>
+              ) : renderMessages()}
               {typingLabel && (
-                <div className="flex gap-2 justify-start px-2">
-                  <div className="w-8 h-8 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                    <span className="text-xs text-slate-600 dark:text-slate-300 font-semibold">?</span>
-                  </div>
-                  <div className="bg-white dark:bg-slate-700 rounded-2xl px-4 py-2">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
-                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                    </div>
+                <div className="mt-3 flex items-end gap-2">
+                  <div className="flex gap-1 rounded-lg rounded-bl-sm border border-line bg-surface px-3.5 py-3" aria-label={`${typingLabel} is typing`}>
+                    {[0, 150, 300].map((d) => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-3" style={{ animationDelay: `${d}ms` }} />)}
                   </div>
                 </div>
               )}
-              <div ref={messageEndRef} />
+              <div ref={endRef} />
             </div>
 
-        {/* Message Input Area */}
-        <div className="p-3 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <AnimatePresence>
-            {showEmojiPicker && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="mb-4 p-4 bg-slate-50 dark:bg-white/5 rounded-[2rem] border border-slate-100 dark:border-white/5 flex flex-wrap gap-2 transition-all"
-              >
-                {emojiList.map((emoji) => (
-                  <button
-                    type="button"
-                    key={emoji}
-                    className="w-10 h-10 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all text-xl flex items-center justify-center"
-                    onClick={() => addEmoji(emoji)}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="p-3 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex-shrink-0"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            >
-              <SmilePlus size={20} />
-            </button>
-            <input
-              className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-full bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-              placeholder="Type a message..."
-              value={text}
-              onChange={handleInputChange}
-              onKeyDown={(event) => event.key === "Enter" && sendMessage()}
-            />
-            <button
-              type="button"
-              className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full disabled:opacity-50 flex-shrink-0"
-              onClick={sendMessage}
-              disabled={!text.trim()}
-            >
-              <Send size={20} />
-            </button>
-          </div>
-        </div>
-      </>
+            <div className="shrink-0 border-t border-line bg-surface p-3">
+              {showEmoji && (
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {EMOJI.map((e) => (
+                    <button key={e} type="button" className="h-9 w-9 rounded-md text-lg hover:bg-sunken" onClick={() => { onType(text + e); inputRef.current?.focus(); }}>{e}</button>
+                  ))}
+                </div>
+              )}
+              <form onSubmit={send} className="flex items-center gap-2">
+                <button type="button" className={`icon-btn ${showEmoji ? "bg-sunken text-ink" : ""}`} onClick={() => setShowEmoji((v) => !v)} aria-label="Emoji"><Smile size={18} /></button>
+                <input
+                  ref={inputRef}
+                  className="input !py-2.5"
+                  placeholder={`Message ${title}`}
+                  value={text}
+                  onChange={(e) => onType(e.target.value)}
+                  aria-label="Message"
+                />
+                <button className="btn btn-accent !px-3.5" disabled={!text.trim()} aria-label="Send"><Send size={16} /></button>
+              </form>
+            </div>
+          </>
         ) : (
-          <div className="flex-1 flex flex-col">
-            {/* Mobile Chat List Header */}
-            <div className="md:hidden flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-              <h1 className="text-xl font-semibold text-slate-900 dark:text-white">Chats</h1>
-              <button
-                type="button"
-                className="p-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                onClick={() => setShowMobileList(true)}
-              >
-                <Menu size={20} />
-              </button>
-            </div>
-
-            {/* Mobile Chat List */}
-            <div className="md:hidden flex-1 overflow-y-auto">
-              {mode === "direct" && conversations.length === 0 && (
-                <div className="p-4 text-center text-slate-500">
-                  <MessageSquare size={48} className="mx-auto mb-2 opacity-50" />
-                  <p>No conversations yet</p>
-                  <p className="text-sm">Connect with friends to start chatting</p>
-                </div>
-              )}
-              {mode === "project" && rooms.length === 0 && (
-                <div className="p-4 text-center text-slate-500">
-                  <Users size={48} className="mx-auto mb-2 opacity-50" />
-                  <p>No project rooms</p>
-                  <p className="text-sm">Join a project to start collaborating</p>
-                </div>
-              )}
-
-              {mode === "direct" && conversations.map((conversation) => {
-                const active = activeChat?.type === "direct" && activeChat.id === conversation.id;
-                const unreadCount = conversation.unreadCount || 0;
-                return (
-                  <button
-                    type="button"
-                    key={conversation.id}
-                    className={`w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
-                    onClick={() => { setActiveChat({ type: "direct", id: conversation.id }); setShowMobileList(false); }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
-                          <span className="text-slate-600 dark:text-slate-300 font-semibold">
-                            {conversation.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        {onlineUserIds.includes(conversation.id) && (
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-semibold text-slate-900 dark:text-white truncate">
-                            {conversation.name}
-                          </p>
-                          {conversation.lastMessageAt && (
-                            <span className="text-xs text-slate-500">
-                              {formatTimestamp(conversation.lastMessageAt)}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <p className="text-sm text-slate-500 truncate">
-                            {conversation.lastMessage || "Start a conversation"}
-                          </p>
-                          {unreadCount > 0 && (
-                            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                              {unreadCount > 99 ? "99+" : unreadCount}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-
-              {mode === "project" && rooms.map((room) => {
-                const active = activeChat?.type === "project" && activeChat.id === room.id;
-                const unreadCount = room.unreadCount || 0;
-                return (
-                  <button
-                    type="button"
-                    key={room.id}
-                    className={`w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700 ${active ? "bg-slate-100 dark:bg-slate-700" : ""}`}
-                    onClick={() => { setActiveChat({ type: "project", id: room.id }); setShowMobileList(false); }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-slate-300 dark:bg-slate-600 rounded-full flex items-center justify-center">
-                        <Users size={20} className="text-slate-600 dark:text-slate-300" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-semibold text-slate-900 dark:text-white truncate">
-                            {room.title}
-                          </p>
-                          {unreadCount > 0 && (
-                            <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                              {unreadCount > 99 ? "99+" : unreadCount}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-500 truncate">
-                          {room.type || "Project"} • {room.members?.length || 0} members
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Desktop Empty State */}
-            <div className="hidden md:flex flex-1 items-center justify-center bg-slate-50 dark:bg-slate-900">
-              <div className="text-center text-slate-500">
-                <MessageSquare size={64} className="mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">Select a chat</h3>
-                <p>Choose a conversation from the sidebar to start messaging</p>
-              </div>
-            </div>
+          <div className="flex flex-1 items-center justify-center p-6">
+            <EmptyState icon={MessageSquare} title="Pick a conversation">Choose a chat, group or team room from the list.</EmptyState>
           </div>
         )}
-      </div>
+      </section>
+
+      {groupDialog && (
+        <NewGroupDialog
+          friends={conversations}
+          onClose={() => setGroupDialog(false)}
+          onCreated={(group) => {
+            setGroupDialog(false);
+            setMode("group");
+            setShowList(false);
+            loadSidebar({ type: "group", id: group.id });
+          }}
+        />
+      )}
     </div>
   );
 }

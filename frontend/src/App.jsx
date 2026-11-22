@@ -1,59 +1,67 @@
-import { useEffect, useState } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
+import AppLayout from "./components/layout/AppLayout";
+import PublicLayout from "./components/layout/PublicLayout";
 import IncomingCallModal from "./components/IncomingCallModal";
 import ProtectedRoute from "./components/ProtectedRoute";
-import Home from "./pages/Home";
+import { Spinner } from "./components/ui";
 import Auth from "./pages/Auth";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
-import Discover from "./pages/Discover";
-import Connections from "./pages/Connections";
-import Projects from "./pages/Projects";
-import Admin from "./pages/Admin";
-import Chat from "./pages/Chat";
-import ProjectCall from "./pages/ProjectCall";
-import Feedback from "./pages/Feedback";
+import Home from "./pages/Home";
+
+// Route-level code splitting: the landing and auth pages load first, the app on demand.
+const Admin = lazy(() => import("./pages/Admin"));
+const Chat = lazy(() => import("./pages/Chat"));
+const Connections = lazy(() => import("./pages/Connections"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Discover = lazy(() => import("./pages/Discover"));
+const Feedback = lazy(() => import("./pages/Feedback"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const Profile = lazy(() => import("./pages/Profile"));
+const ProjectCall = lazy(() => import("./pages/ProjectCall"));
+const Projects = lazy(() => import("./pages/Projects"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 export default function App() {
-  const [darkMode, setDarkMode] = useState(localStorage.getItem("vitap_connect_theme") === "dark");
-  const location = useLocation();
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", darkMode);
-    localStorage.setItem("vitap_connect_theme", darkMode ? "dark" : "light");
-  }, [darkMode]);
-
-  const hideFooter = location.pathname.startsWith("/chat") || location.pathname.startsWith("/project-call");
-
   return (
     <>
-      <Navbar darkMode={darkMode} setDarkMode={setDarkMode} />
-      <main>
-        <Routes>
+      <Suspense fallback={<Spinner />}>
+      <Routes>
+        <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Auth mode="login" />} />
-          <Route path="/register" element={<Auth mode="register" />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
-          <Route path="/connections" element={<ProtectedRoute><Connections /></ProtectedRoute>} />
-          <Route path="/collaborations" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
-          <Route path="/project-call/:roomId" element={<ProtectedRoute><ProjectCall /></ProtectedRoute>} />
-          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-          <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
+        </Route>
+
+        <Route path="/login" element={<Auth mode="login" />} />
+        <Route path="/register" element={<Auth mode="register" />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
+        <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/discover" element={<Discover />} />
+          <Route path="/connections" element={<Connections />} />
+          <Route path="/collaborations" element={<Projects />} />
+          <Route path="/chat" element={<Chat />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/feedback" element={<Feedback />} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
-        </Routes>
-      </main>
-      {!hideFooter && <Footer />}
+        </Route>
+
+        <Route path="/project-call/:roomId" element={<ProtectedRoute><ProjectCall /></ProtectedRoute>} />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      </Suspense>
+
       <IncomingCallModal />
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          className: "!rounded-md !border !border-line !bg-surface !text-ink !text-sm !shadow-pop",
+          success: { iconTheme: { primary: "rgb(var(--ok))", secondary: "rgb(var(--surface))" } },
+          error: { iconTheme: { primary: "rgb(var(--bad))", secondary: "rgb(var(--surface))" } }
+        }}
+      />
     </>
   );
 }

@@ -1,50 +1,56 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { LoaderCircle, Maximize2, Mic, MicOff, Minimize2, MonitorUp, PhoneOff, Pin, ScreenShareOff, Video, VideoOff, Users } from "lucide-react";
+import { LoaderCircle, Maximize2, Mic, MicOff, Minimize2, MonitorUp, PhoneOff, ScreenShareOff, TriangleAlert, Users, Video, VideoOff } from "lucide-react";
 import { api } from "../services/api";
 import { getSocket } from "../services/socket";
 import { useAuth } from "../context/AuthContext";
 
-const fallbackIceServers = [
-  { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }
-];
+const fallbackIceServers = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
 
-function VideoTile({ title, subtitle, stream, muted = false, isVideoEnabled = true, isAudioEnabled = true, local = false, sharingScreen = false, pinned = false, tall = false, onPin }) {
+// The call screen is always dark, independent of the app theme.
+function VideoTile({ title, stream, muted = false, isVideoEnabled = true, isAudioEnabled = true, local = false, sharingScreen = false, focused = false, onPin }) {
   const videoRef = useRef(null);
 
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream || null;
-    }
-  }, [stream]);
+    if (videoRef.current) videoRef.current.srcObject = stream || null;
+  }, [stream, isVideoEnabled]);
 
   return (
-    <button type="button" onClick={onPin} className={`relative overflow-hidden rounded-[2rem] border text-left w-full ${pinned ? "border-blue-400 ring-2 ring-blue-400/40" : "border-white/10"} bg-slate-900`}>
+    <button
+      type="button"
+      onClick={onPin}
+      className={`group relative h-full w-full overflow-hidden rounded-lg bg-[#1E1C19] text-left ${focused ? "" : "ring-1 ring-white/10 hover:ring-white/30"}`}
+    >
       {stream && isVideoEnabled ? (
-        <video ref={videoRef} autoPlay playsInline muted={muted || local} className={`${tall ? "h-[60vh]" : "h-56"} w-full bg-slate-950 object-cover`} />
+        <video ref={videoRef} autoPlay playsInline muted={muted || local} className={`h-full w-full bg-black ${sharingScreen ? "object-contain" : "object-cover"} ${local && !sharingScreen ? "-scale-x-100" : ""}`} />
       ) : (
-        <div className={`flex ${tall ? "h-[60vh]" : "h-56"} items-center justify-center bg-slate-800`}>
-          <div className="text-center text-slate-200">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-2xl font-bold">
-              {title?.charAt(0)?.toUpperCase() || "U"}
-            </div>
-            <p className="mt-3 text-sm font-semibold">{sharingScreen ? "Screen sharing" : isVideoEnabled ? "Waiting for video..." : "Camera off"}</p>
+        <>
+          {stream && <video ref={videoRef} autoPlay playsInline muted={muted || local} className="hidden" />}
+          <div className="flex h-full items-center justify-center">
+            <span className={`flex items-center justify-center rounded-lg bg-white/10 font-display font-semibold text-white ${focused ? "h-24 w-24 text-4xl" : "h-12 w-12 text-lg"}`}>
+              {title?.charAt(0)?.toUpperCase() || "?"}
+            </span>
           </div>
-        </div>
+        </>
       )}
-      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 via-black/25 to-transparent px-4 py-4 text-white">
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="font-semibold">{title}</p>
-            {sharingScreen && <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[11px] font-semibold text-emerald-200">Sharing screen</span>}
-          </div>
-          {subtitle && <p className="text-xs text-slate-200">{subtitle}</p>}
-        </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span className={`rounded-full px-2 py-1 ${isAudioEnabled ? "bg-emerald-500/20 text-emerald-200" : "bg-rose-500/20 text-rose-200"}`}>{isAudioEnabled ? "Mic on" : "Muted"}</span>
-          <span className={`rounded-full px-2 py-1 ${isVideoEnabled || sharingScreen ? "bg-sky-500/20 text-sky-200" : "bg-slate-500/20 text-slate-200"}`}>{sharingScreen ? "Screen on" : isVideoEnabled ? "Video on" : "Video off"}</span>
-        </div>
+      <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2.5 pt-6 text-white">
+        <span className="truncate text-sm font-medium">{title}</span>
+        {!isAudioEnabled && <MicOff size={14} className="shrink-0 text-[#F4786A]" aria-label="Muted" />}
+        {sharingScreen && <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 font-mono text-[10px]">screen</span>}
       </div>
+    </button>
+  );
+}
+
+function ControlButton({ active = true, danger = false, onClick, disabled, label, children }) {
+  const tone = danger
+    ? "bg-[#D9480F] text-white hover:bg-[#C23F0D]"
+    : active
+    ? "bg-white/10 text-white hover:bg-white/20"
+    : "bg-white text-[#17160F] hover:bg-white/90";
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label} className={`inline-flex h-12 min-w-12 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors disabled:opacity-40 ${tone}`}>
+      {children}
     </button>
   );
 }
@@ -70,7 +76,7 @@ export default function ProjectCall() {
   const [isSharingScreen, setIsSharingScreen] = useState(false);
   const [pinnedTileId, setPinnedTileId] = useState("local");
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const pinnedWrapperRef = useRef(null);
+  const stageRef = useRef(null);
 
   const type = searchParams.get("type") || "video";
   const project = searchParams.get("project") || "Project room";
@@ -78,78 +84,59 @@ export default function ProjectCall() {
   const isPrivateCall = searchParams.get("private") === "1";
   const isVoiceRoom = type === "voice";
 
-  function stageCandidates() {
-    return [
-      {
-        id: "local",
-        title: "You",
-        subtitle: isPrivateCall ? "Private call" : isVoiceRoom ? "Voice room" : "Project room",
-        stream: screenStreamRef.current || localStreamRef.current,
-        isAudioEnabled: isMicEnabled,
-        isVideoEnabled: isSharingScreen || isCameraEnabled,
-        sharingScreen: isSharingScreen,
-        local: true
-      },
-      ...remoteParticipants.map((participant) => ({
-        id: participant.socketId,
-        title: participant.userName,
-        subtitle: participant.callType === "voice" ? "Voice participant" : "Connected teammate",
-        stream: participant.stream,
-        isAudioEnabled: participant.audioEnabled,
-        isVideoEnabled: participant.videoEnabled,
-        sharingScreen: participant.sharingScreen,
-        local: false
-      }))
-    ];
-  }
-
-  const stageItems = stageCandidates();
-  const pinnedItem = stageItems.find((item) => item.id === pinnedTileId) || stageItems.find((item) => item.sharingScreen) || stageItems[0];
-  const thumbnailItems = stageItems.filter((item) => item.id !== pinnedItem?.id);
+  const stageItems = [
+    {
+      id: "local",
+      title: `${user.name} (you)`,
+      stream: screenStreamRef.current || localStreamRef.current,
+      isAudioEnabled: isMicEnabled,
+      isVideoEnabled: isSharingScreen || isCameraEnabled,
+      sharingScreen: isSharingScreen,
+      local: true
+    },
+    ...remoteParticipants.map((p) => ({
+      id: p.socketId,
+      title: p.userName,
+      stream: p.stream,
+      isAudioEnabled: p.audioEnabled,
+      isVideoEnabled: p.videoEnabled,
+      sharingScreen: p.sharingScreen,
+      local: false
+    }))
+  ];
+  const pinnedItem = stageItems.find((i) => i.id === pinnedTileId) || stageItems.find((i) => i.sharingScreen) || stageItems[0];
+  const thumbnailItems = stageItems.filter((i) => i.id !== pinnedItem?.id);
 
   useEffect(() => {
-    // 1. Prioritize screen sharers
-    const sharer = stageItems.find((item) => item.sharingScreen && item.id !== pinnedTileId);
-    if (sharer) {
-      setPinnedTileId(sharer.id);
-      return;
-    }
-
-    // 2. Prioritize remote participants over local view if nothing is pinned/local is pinned
-    if (pinnedTileId === "local" && remoteParticipants.length > 0) {
-      setPinnedTileId(remoteParticipants[0].socketId);
-    }
+    // Prioritise screen sharers, then a remote participant over the local tile.
+    const sharer = stageItems.find((i) => i.sharingScreen && i.id !== pinnedTileId);
+    if (sharer) return setPinnedTileId(sharer.id);
+    if (pinnedTileId === "local" && remoteParticipants.length > 0) setPinnedTileId(remoteParticipants[0].socketId);
   }, [remoteParticipants.length, isSharingScreen, pinnedTileId]);
 
   function upsertRemoteParticipant(participant, patch = {}) {
     setRemoteParticipants((current) => {
-      const existing = current.find((item) => item.socketId === participant.socketId);
+      const existing = current.find((i) => i.socketId === participant.socketId);
       return existing
-        ? current.map((item) => item.socketId === participant.socketId ? { ...item, ...participant, ...patch } : item)
+        ? current.map((i) => (i.socketId === participant.socketId ? { ...i, ...participant, ...patch } : i))
         : [...current, { ...participant, ...patch, stream: patch.stream || null }];
     });
   }
 
   function removeRemoteParticipant(socketId) {
-    setRemoteParticipants((current) => current.filter((participant) => participant.socketId !== socketId));
-    setPinnedTileId((current) => current === socketId ? "local" : current);
+    setRemoteParticipants((current) => current.filter((p) => p.socketId !== socketId));
+    setPinnedTileId((current) => (current === socketId ? "local" : current));
   }
 
   function toggleFullscreen() {
-    const el = pinnedWrapperRef.current;
+    const el = stageRef.current;
     if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
-    }
+    if (!document.fullscreenElement) el.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    else document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
   }
 
-  // Sync state when user presses Escape to exit fullscreen
   useEffect(() => {
-    function onFsChange() {
-      setIsFullscreen(!!document.fullscreenElement);
-    }
+    const onFsChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", onFsChange);
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
@@ -165,17 +152,13 @@ export default function ProjectCall() {
   }
 
   function attachLocalPreview(stream) {
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = stream || null;
-    }
+    if (localVideoRef.current) localVideoRef.current.srcObject = stream || null;
   }
 
   async function fetchCallConfig() {
     try {
       const { data } = await api.get("/config/call");
-      if (Array.isArray(data.iceServers) && data.iceServers.length) {
-        iceServersRef.current = data.iceServers;
-      }
+      if (Array.isArray(data.iceServers) && data.iceServers.length) iceServersRef.current = data.iceServers;
     } catch {
       iceServersRef.current = fallbackIceServers;
     }
@@ -183,26 +166,25 @@ export default function ProjectCall() {
 
   async function getLocalStream() {
     if (localStreamRef.current) return localStreamRef.current;
-    const preferredConstraints = isVoiceRoom
+    const constraints = isVoiceRoom
       ? { audio: true, video: false }
       : { audio: true, video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } };
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(preferredConstraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
       attachLocalPreview(stream);
-      setIsMicEnabled(stream.getAudioTracks().every((track) => track.enabled));
-      setIsCameraEnabled(stream.getVideoTracks().length > 0 && stream.getVideoTracks().every((track) => track.enabled));
+      setIsMicEnabled(stream.getAudioTracks().every((t) => t.enabled));
+      setIsCameraEnabled(stream.getVideoTracks().length > 0 && stream.getVideoTracks().every((t) => t.enabled));
       return stream;
     } catch (primaryError) {
       if (!isVoiceRoom) {
-        const fallbackStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        localStreamRef.current = fallbackStream;
-        attachLocalPreview(fallbackStream);
+        const fallback = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        localStreamRef.current = fallback;
+        attachLocalPreview(fallback);
         setIsMicEnabled(true);
         setIsCameraEnabled(false);
-        setError("Camera was unavailable, so the room joined in audio-only mode.");
-        return fallbackStream;
+        setError("Camera unavailable — you joined with audio only.");
+        return fallback;
       }
       throw primaryError;
     }
@@ -210,18 +192,16 @@ export default function ProjectCall() {
 
   async function replaceOutgoingVideoTrack(nextTrack) {
     const replacements = [];
-    peerConnectionsRef.current.forEach((peerConnection) => {
-      const sender = peerConnection.getSenders().find((item) => item.track?.kind === "video");
-      if (sender) {
-        replacements.push(sender.replaceTrack(nextTrack || null));
-      }
+    peerConnectionsRef.current.forEach((pc) => {
+      const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+      if (sender) replacements.push(sender.replaceTrack(nextTrack || null));
     });
     await Promise.all(replacements);
   }
 
   async function stopScreenShare() {
     if (!screenStreamRef.current) return;
-    screenStreamRef.current.getTracks().forEach((track) => track.stop());
+    screenStreamRef.current.getTracks().forEach((t) => t.stop());
     screenStreamRef.current = null;
     setIsSharingScreen(false);
     attachLocalPreview(localStreamRef.current);
@@ -233,70 +213,48 @@ export default function ProjectCall() {
     if (peerConnectionsRef.current.has(participant.socketId)) return peerConnectionsRef.current.get(participant.socketId);
 
     const stream = await getLocalStream();
-    const peerConnection = new RTCPeerConnection({ iceServers: iceServersRef.current });
-    peerConnectionsRef.current.set(participant.socketId, peerConnection);
-    stream.getTracks().forEach((track) => peerConnection.addTrack(track, stream));
+    const pc = new RTCPeerConnection({ iceServers: iceServersRef.current });
+    peerConnectionsRef.current.set(participant.socketId, pc);
+    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-    peerConnection.ontrack = (event) => {
-      upsertRemoteParticipant(participant, { stream: event.streams[0] });
-    };
-
-    peerConnection.onicecandidate = (event) => {
+    pc.ontrack = (event) => upsertRemoteParticipant(participant, { stream: event.streams[0] });
+    pc.onicecandidate = (event) => {
       if (!event.candidate) return;
-      socket.emit("call:signal", {
-        roomId,
-        targetSocketId: participant.socketId,
-        payload: { type: "ice-candidate", candidate: event.candidate }
-      });
+      socket.emit("call:signal", { roomId, targetSocketId: participant.socketId, payload: { type: "ice-candidate", candidate: event.candidate } });
     };
-
-    peerConnection.onconnectionstatechange = () => {
-      if (["failed", "closed", "disconnected"].includes(peerConnection.connectionState)) {
+    pc.onconnectionstatechange = () => {
+      if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
         closePeerConnection(participant.socketId);
         removeRemoteParticipant(participant.socketId);
       }
     };
 
     if (shouldCreateOffer) {
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-      socket.emit("call:signal", {
-        roomId,
-        targetSocketId: participant.socketId,
-        payload: { type: "offer", sdp: offer }
-      });
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit("call:signal", { roomId, targetSocketId: participant.socketId, payload: { type: "offer", sdp: offer } });
     }
-
-    return peerConnection;
+    return pc;
   }
 
   async function handleSignalMessage({ fromSocketId, fromUserId, fromUserName, payload }) {
     if (!payload?.type || !fromSocketId) return;
     const participant = { socketId: fromSocketId, userId: fromUserId, userName: fromUserName, audioEnabled: true, videoEnabled: true, sharingScreen: false };
     upsertRemoteParticipant(participant);
-    const peerConnection = await createPeerConnection(participant, false);
+    const pc = await createPeerConnection(participant, false);
 
     if (payload.type === "offer") {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      socket.emit("call:signal", {
-        roomId,
-        targetSocketId: fromSocketId,
-        payload: { type: "answer", sdp: answer }
-      });
-      return;
-    }
-
-    if (payload.type === "answer") {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-      return;
-    }
-
-    if (payload.type === "ice-candidate" && payload.candidate) {
+      await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit("call:signal", { roomId, targetSocketId: fromSocketId, payload: { type: "answer", sdp: answer } });
+    } else if (payload.type === "answer") {
+      await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+    } else if (payload.type === "ice-candidate" && payload.candidate) {
       try {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
       } catch {
+        /* late or duplicate candidate */
       }
     }
   }
@@ -307,65 +265,46 @@ export default function ProjectCall() {
       try {
         await fetchCallConfig();
         await getLocalStream();
-        socket.auth = { token: localStorage.getItem("vitap_connect_token") };
         if (!socket.connected) socket.connect();
 
-        const handleParticipants = async ({ participants }) => {
+        const onParticipants = async ({ participants }) => {
           if (!active) return;
-          setRemoteParticipants(participants.map((participant) => ({ ...participant, stream: null })));
-          for (const participant of participants) {
-            await createPeerConnection(participant, true);
-          }
+          setRemoteParticipants(participants.map((p) => ({ ...p, stream: null })));
+          for (const p of participants) await createPeerConnection(p, true);
         };
-
-        const handleParticipantJoined = ({ participant }) => {
+        const onJoined = ({ participant }) => {
           if (!active || !participant || participant.socketId === socket.id) return;
           upsertRemoteParticipant(participant);
         };
-
-        const handleParticipantLeft = ({ socketId }) => {
+        const onLeft = ({ socketId }) => {
           closePeerConnection(socketId);
           removeRemoteParticipant(socketId);
         };
-
-        const handleMediaState = ({ participant }) => {
-          if (!participant?.socketId) return;
-          upsertRemoteParticipant(participant);
+        const onMediaState = ({ participant }) => participant?.socketId && upsertRemoteParticipant(participant);
+        const onSignal = (message) => {
+          handleSignalMessage(message).catch(() => setError("Couldn't connect to a participant. Try leaving and rejoining."));
         };
 
-        const handleSignal = (message) => {
-          handleSignalMessage(message).catch(() => setError("A participant connection could not be completed. You can retry by rejoining the room."));
-        };
-
-        socket.on("call:participants", handleParticipants);
-        socket.on("call:participant-joined", handleParticipantJoined);
-        socket.on("call:participant-left", handleParticipantLeft);
-        socket.on("call:media-state", handleMediaState);
-        socket.on("call:signal", handleSignal);
-
+        socket.on("call:participants", onParticipants);
+        socket.on("call:participant-joined", onJoined);
+        socket.on("call:participant-left", onLeft);
+        socket.on("call:media-state", onMediaState);
+        socket.on("call:signal", onSignal);
         cleanupHandlersRef.current = () => {
-          socket.off("call:participants", handleParticipants);
-          socket.off("call:participant-joined", handleParticipantJoined);
-          socket.off("call:participant-left", handleParticipantLeft);
-          socket.off("call:media-state", handleMediaState);
-          socket.off("call:signal", handleSignal);
+          socket.off("call:participants", onParticipants);
+          socket.off("call:participant-joined", onJoined);
+          socket.off("call:participant-left", onLeft);
+          socket.off("call:media-state", onMediaState);
+          socket.off("call:signal", onSignal);
         };
 
         if (!joinedRef.current) {
-          socket.emit("call:join", {
-            roomId,
-            userName: user.name,
-            callType: type,
-            audioEnabled: true,
-            videoEnabled: !isVoiceRoom && isCameraEnabled,
-            sharingScreen: false
-          });
+          socket.emit("call:join", { roomId, userName: user.name, callType: type, audioEnabled: true, videoEnabled: !isVoiceRoom && isCameraEnabled, sharingScreen: false });
           joinedRef.current = true;
         }
-
         setLoading(false);
       } catch (callError) {
-        setError(callError?.message || "We could not access your microphone or camera.");
+        setError(callError?.message || "We couldn't access your microphone or camera.");
         setLoading(false);
       }
     }
@@ -377,15 +316,11 @@ export default function ProjectCall() {
       cleanupHandlersRef.current();
       socket.emit("call:leave", { roomId });
       joinedRef.current = false;
-      peerConnectionsRef.current.forEach((_, socketId) => closePeerConnection(socketId));
-      if (screenStreamRef.current) {
-        screenStreamRef.current.getTracks().forEach((track) => track.stop());
-        screenStreamRef.current = null;
-      }
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => track.stop());
-        localStreamRef.current = null;
-      }
+      peerConnectionsRef.current.forEach((_, id) => closePeerConnection(id));
+      screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current = null;
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
+      localStreamRef.current = null;
     };
   }, [roomId, socket, type, user.name]);
 
@@ -393,17 +328,15 @@ export default function ProjectCall() {
     attachLocalPreview(screenStreamRef.current || localStreamRef.current);
   }, [loading, isSharingScreen]);
 
-  function updateMediaState({ audioEnabled, videoEnabled, sharingScreen }) {
-    socket.emit("call:media-state", { roomId, audioEnabled, videoEnabled, sharingScreen });
+  function updateMediaState(state) {
+    socket.emit("call:media-state", { roomId, ...state });
   }
 
   function toggleMic() {
     const stream = localStreamRef.current;
     if (!stream) return;
     const next = !isMicEnabled;
-    stream.getAudioTracks().forEach((track) => {
-      track.enabled = next;
-    });
+    stream.getAudioTracks().forEach((t) => (t.enabled = next));
     setIsMicEnabled(next);
     updateMediaState({ audioEnabled: next, videoEnabled: isCameraEnabled || isSharingScreen, sharingScreen: isSharingScreen });
   }
@@ -413,9 +346,7 @@ export default function ProjectCall() {
     const stream = localStreamRef.current;
     if (!stream) return;
     const next = !isCameraEnabled;
-    stream.getVideoTracks().forEach((track) => {
-      track.enabled = next;
-    });
+    stream.getVideoTracks().forEach((t) => (t.enabled = next));
     setIsCameraEnabled(next);
     updateMediaState({ audioEnabled: isMicEnabled, videoEnabled: next, sharingScreen: false });
   }
@@ -427,13 +358,12 @@ export default function ProjectCall() {
       updateMediaState({ audioEnabled: isMicEnabled, videoEnabled: isCameraEnabled, sharingScreen: false });
       return;
     }
-
     try {
-      const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-      const screenTrack = displayStream.getVideoTracks()[0];
-      screenStreamRef.current = displayStream;
+      const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const screenTrack = display.getVideoTracks()[0];
+      screenStreamRef.current = display;
       setIsSharingScreen(true);
-      attachLocalPreview(displayStream);
+      attachLocalPreview(display);
       setPinnedTileId("local");
       await replaceOutgoingVideoTrack(screenTrack);
       updateMediaState({ audioEnabled: isMicEnabled, videoEnabled: true, sharingScreen: true });
@@ -451,105 +381,95 @@ export default function ProjectCall() {
     navigate(isPrivateCall ? "/chat" : "/collaborations");
   }
 
+  const heading = isPrivateCall ? `Call with ${peerName}` : project;
+
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10">
-      <div className="rounded-[2rem] bg-slate-950 p-6 text-white border border-white/10">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold">{isVoiceRoom ? "Voice" : "Video"} collaboration room</span>
-            <h1 className="mt-5 font-display text-4xl font-bold">{isPrivateCall ? `${project} private call` : project}</h1>
-            <p className="mt-2 text-slate-300">Room ID: {roomId}</p>
-            {isPrivateCall && <p className="mt-2 text-sm text-slate-400">Connected with {peerName}</p>}
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
-            <p className="font-semibold">{remoteParticipants.length + 1} participants in room</p>
-            <p className="mt-1 inline-flex items-center gap-2 text-slate-300"><Users size={16} /> WebRTC with STUN/TURN-ready ICE servers and live media streams</p>
-          </div>
+    <div className="flex h-dvh flex-col bg-[#0E0D0C] text-white">
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/10 px-4">
+        <span className={`h-2 w-2 rounded-full ${loading ? "bg-white/40" : "bg-[#68C48D]"}`} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display font-semibold">{heading}</p>
+          <p className="truncate font-mono text-[10px] text-white/50">{isVoiceRoom ? "voice" : "video"} · {roomId.slice(0, 8)}</p>
         </div>
+        <span className="inline-flex items-center gap-1.5 rounded bg-white/10 px-2 py-1 font-mono text-xs"><Users size={13} /> {remoteParticipants.length + 1}</span>
+        <button type="button" onClick={toggleFullscreen} className="inline-flex h-9 w-9 items-center justify-center rounded-md text-white/70 hover:bg-white/10 hover:text-white" aria-label={isFullscreen ? "Exit full screen" : "Full screen"}>
+          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
+      </header>
 
-        {error && <div className="mt-6 rounded-3xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">{error}</div>}
+      {error && (
+        <div className="flex items-center gap-2 border-b border-[#E7B354]/30 bg-[#E7B354]/10 px-4 py-2 text-sm text-[#F2D9A6]">
+          <TriangleAlert size={15} /> {error}
+        </div>
+      )}
 
+      <div ref={stageRef} className="flex min-h-0 flex-1 flex-col gap-3 bg-[#0E0D0C] p-3 sm:p-4">
         {loading ? (
-          <div className="mt-10 flex min-h-80 items-center justify-center rounded-[2rem] border border-white/10 bg-white/5 text-slate-200">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto animate-spin" size={32} />
-              <p className="mt-4 font-semibold">Connecting to the meeting room...</p>
-            </div>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-white/70">
+            <LoaderCircle className="animate-spin" size={28} />
+            <p className="text-sm">Joining the room…</p>
           </div>
         ) : (
-          <div className="mt-8 space-y-4">
-            {pinnedItem && (
-              <div ref={pinnedWrapperRef} className="rounded-[2rem] border border-white/10 bg-slate-900 p-3">
-                <div className="mb-3 flex items-center justify-between gap-3 px-2">
-                  <div>
-                    <p className="text-lg font-semibold">Focused view: {pinnedItem.title}</p>
-                    <p className="text-sm text-slate-300">Click any tile below to pin it here.</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {pinnedItem.sharingScreen && <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">Sharing screen</span>}
-                    {/* Fullscreen toggle */}
-                    <button
-                      type="button"
-                      title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                      className="rounded-full bg-white/10 p-2 hover:bg-white/20 transition-colors"
-                      onClick={toggleFullscreen}
-                    >
-                      {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-                    </button>
-                  </div>
-                </div>
+          <>
+            <div className="min-h-0 flex-1">
+              {pinnedItem && (
                 <VideoTile
                   title={pinnedItem.title}
-                  subtitle={pinnedItem.subtitle}
                   stream={pinnedItem.stream}
                   isAudioEnabled={pinnedItem.isAudioEnabled}
                   isVideoEnabled={pinnedItem.isVideoEnabled}
                   sharingScreen={pinnedItem.sharingScreen}
                   local={pinnedItem.local}
                   muted={pinnedItem.local}
-                  pinned
-                  tall
+                  focused
                   onPin={() => setPinnedTileId(pinnedItem.id)}
                 />
+              )}
+            </div>
+            {thumbnailItems.length > 0 && (
+              <div className="flex h-28 shrink-0 gap-3 overflow-x-auto sm:h-32">
+                {thumbnailItems.map((item) => (
+                  <div key={item.id} className="aspect-video h-full shrink-0">
+                    <VideoTile
+                      title={item.title}
+                      stream={item.stream}
+                      isAudioEnabled={item.isAudioEnabled}
+                      isVideoEnabled={item.isVideoEnabled}
+                      sharingScreen={item.sharingScreen}
+                      local={item.local}
+                      muted={item.local}
+                      onPin={() => setPinnedTileId(item.id)}
+                    />
+                  </div>
+                ))}
               </div>
             )}
-
-            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-              {thumbnailItems.map((item) => (
-                <VideoTile
-                  key={item.id}
-                  title={item.title}
-                  subtitle={item.subtitle}
-                  stream={item.stream}
-                  isAudioEnabled={item.isAudioEnabled}
-                  isVideoEnabled={item.isVideoEnabled}
-                  sharingScreen={item.sharingScreen}
-                  local={item.local}
-                  muted={item.local}
-                  onPin={() => setPinnedTileId(item.id)}
-                />
-              ))}
-            </div>
-          </div>
+            {remoteParticipants.length === 0 && (
+              <p className="text-center text-sm text-white/50">Waiting for others to join…</p>
+            )}
+          </>
         )}
-
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <button type="button" className={`rounded-full px-5 py-3 font-semibold ${isMicEnabled ? "bg-white/10" : "bg-rose-500/20 text-rose-100"}`} onClick={toggleMic}>
-            {isMicEnabled ? <Mic className="mr-2 inline" size={18} /> : <MicOff className="mr-2 inline" size={18} />} {isMicEnabled ? "Mute" : "Unmute"}
-          </button>
-          {!isVoiceRoom && (
-            <button type="button" className={`rounded-full px-5 py-3 font-semibold ${isCameraEnabled ? "bg-white/10" : "bg-slate-700 text-slate-100"}`} onClick={toggleCamera} disabled={isSharingScreen}>
-              {isCameraEnabled ? <Video className="mr-2 inline" size={18} /> : <VideoOff className="mr-2 inline" size={18} />} {isCameraEnabled ? "Camera off" : "Camera on"}
-            </button>
-          )}
-          {!isVoiceRoom && (
-            <button type="button" className={`rounded-full px-5 py-3 font-semibold ${isSharingScreen ? "bg-emerald-600 text-white" : "bg-white/10"}`} onClick={toggleScreenShare}>
-              {isSharingScreen ? <ScreenShareOff className="mr-2 inline" size={18} /> : <MonitorUp className="mr-2 inline" size={18} />} {isSharingScreen ? "Stop sharing" : "Share screen"}
-            </button>
-          )}
-          <button type="button" className="rounded-full bg-rose-600 px-5 py-3 font-semibold" onClick={leaveRoom}><PhoneOff className="mr-2 inline" size={18} /> Leave</button>
-        </div>
       </div>
-    </section>
+
+      <footer className="flex shrink-0 items-center justify-center gap-2 border-t border-white/10 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <ControlButton active={isMicEnabled} onClick={toggleMic} label={isMicEnabled ? "Mute" : "Unmute"}>
+          {isMicEnabled ? <Mic size={18} /> : <MicOff size={18} />}
+        </ControlButton>
+        {!isVoiceRoom && (
+          <ControlButton active={isCameraEnabled} onClick={toggleCamera} disabled={isSharingScreen} label={isCameraEnabled ? "Turn camera off" : "Turn camera on"}>
+            {isCameraEnabled ? <Video size={18} /> : <VideoOff size={18} />}
+          </ControlButton>
+        )}
+        {!isVoiceRoom && (
+          <ControlButton active={!isSharingScreen} onClick={toggleScreenShare} label={isSharingScreen ? "Stop sharing" : "Share screen"}>
+            {isSharingScreen ? <ScreenShareOff size={18} /> : <MonitorUp size={18} />}
+            <span className="hidden sm:inline">{isSharingScreen ? "Stop" : "Share"}</span>
+          </ControlButton>
+        )}
+        <ControlButton danger onClick={leaveRoom} label="Leave call">
+          <PhoneOff size={18} /> <span className="hidden sm:inline">Leave</span>
+        </ControlButton>
+      </footer>
+    </div>
   );
 }

@@ -1,37 +1,179 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens ────────────────────────────────────────────────────────────
+   Warm "campus noticeboard" palette: paper, ink, one vermilion accent.
+   Values are RGB channels so Tailwind opacity modifiers work (bg-accent/10). */
 @layer base {
+  :root {
+    --bg: 245 243 238;
+    --surface: 255 255 255;
+    --sunken: 237 234 227;
+    --ink: 23 22 15;
+    --ink-2: 94 90 80;
+    --ink-3: 141 136 124;
+    --line: 226 222 212;
+    --line-strong: 205 200 187;
+    --accent: 217 72 15;
+    --accent-ink: 255 255 255;
+    --accent-soft: 252 232 221;
+    --ok: 47 125 79;
+    --ok-soft: 222 240 228;
+    --warn: 168 110 18;
+    --warn-soft: 250 238 210;
+    --bad: 190 49 38;
+    --bad-soft: 250 226 222;
+    color-scheme: light;
+  }
+
+  .dark {
+    --bg: 18 17 16;
+    --surface: 27 26 23;
+    --sunken: 35 33 30;
+    --ink: 242 239 232;
+    --ink-2: 168 163 150;
+    --ink-3: 117 113 106;
+    --line: 46 44 40;
+    --line-strong: 66 63 57;
+    --accent: 255 122 69;
+    --accent-ink: 23 12 6;
+    --accent-soft: 58 32 21;
+    --ok: 104 196 141;
+    --ok-soft: 24 47 34;
+    --warn: 231 179 84;
+    --warn-soft: 52 40 18;
+    --bad: 244 120 106;
+    --bad-soft: 60 26 23;
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
-    @apply min-h-screen bg-slate-50 font-body text-slate-950 antialiased dark:bg-slate-950 dark:text-slate-50;
+    @apply min-h-screen bg-bg font-body text-[15px] leading-normal text-ink antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+    font-variation-settings: "opsz" 48;
+  }
+
+  ::selection {
+    @apply bg-accent/20;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent/60 ring-offset-2 ring-offset-bg;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    @apply cursor-pointer dark:invert;
   }
 }
 
 @layer components {
-  .card {
-    @apply rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-700 dark:bg-slate-950;
+  /* Surfaces */
+  .panel {
+    @apply rounded-lg border border-line bg-surface;
+  }
+
+  .panel-pad {
+    @apply rounded-lg border border-line bg-surface p-5 sm:p-6;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-[13px];
+  }
+
+  .btn-lg {
+    @apply px-5 py-3 text-[15px];
   }
 
   .btn-primary {
-    @apply rounded-full bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800;
+    @apply bg-ink text-bg hover:bg-ink/85;
+  }
+
+  .btn-accent {
+    @apply bg-accent text-accent-ink hover:bg-accent/90;
   }
 
   .btn-secondary {
-    @apply rounded-full border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:hover:border-slate-500;
+    @apply border border-line-strong bg-surface text-ink hover:border-ink-3 hover:bg-sunken;
   }
 
+  .btn-ghost {
+    @apply text-ink-2 hover:bg-sunken hover:text-ink;
+  }
+
+  .btn-danger {
+    @apply border border-bad/30 bg-bad-soft text-bad hover:border-bad/60;
+  }
+
+  .icon-btn {
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-sunken hover:text-ink;
+  }
+
+  /* Form controls */
   .input {
-    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:focus:ring-slate-800;
+    @apply w-full rounded-md border border-line-strong bg-surface px-3 py-2.5 text-[15px] text-ink outline-none transition placeholder:text-ink-3 focus:border-ink focus:ring-0;
   }
 
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    @apply dark:invert;
+  .label {
+    @apply mb-1.5 block text-[13px] font-semibold text-ink-2;
+  }
+
+  /* Small type */
+  .eyebrow {
+    @apply font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3;
   }
 
   .tag {
-    @apply rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200;
+    @apply inline-flex items-center rounded border border-line bg-sunken px-2 py-0.5 text-xs font-medium text-ink-2;
+  }
+
+  .kbd {
+    @apply rounded border border-line bg-sunken px-1.5 py-0.5 font-mono text-[11px] text-ink-2;
+  }
+
+  .divider {
+    @apply border-t border-line;
+  }
+
+  .link {
+    @apply font-semibold text-ink underline decoration-line-strong underline-offset-4 transition hover:decoration-accent;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line-strong)) transparent;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Graph-paper texture for hero/auth panels */
+  .grid-paper {
+    background-image:
+      linear-gradient(rgb(var(--line) / 0.7) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--line) / 0.7) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

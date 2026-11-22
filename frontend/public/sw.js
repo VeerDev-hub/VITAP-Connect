@@ -4,8 +4,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'VITAP Connect';
   const options = {
     body: data.body || 'You have a new notification',
-    icon: '/vite.svg',
-    badge: '/vite.svg',
+    icon: '/favicon.svg',
+    badge: '/favicon.svg',
     data: { url: data.url || '/' },
     vibrate: [100, 50, 100],
   };

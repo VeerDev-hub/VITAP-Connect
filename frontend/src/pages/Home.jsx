@@ -1,167 +1,156 @@
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowRight, Bell, BrainCircuit, CheckCircle2, Compass, Network, Search, ShieldCheck, Sparkles, Upload, Users } from "lucide-react";
-import GraphShowcase from "../components/GraphShowcase";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 28 },
-  visible: { opacity: 1, y: 0 }
-};
-
-const stagger = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.12 } }
-};
-
-const features = [
-  ["Find study partners", "Connect with classmates who share your interests, courses, and academic goals.", Search],
-  ["Smart matching", "Get personalized recommendations based on your skills, clubs, and project preferences.", BrainCircuit],
-  ["Project collaboration", "Form study groups and teams for assignments, hackathons, and research projects.", Users],
-  ["Safe campus community", "Verified VITAP University students with moderated profiles and secure messaging.", ShieldCheck]
+// Mini graph illustration: the student graph the recommender actually walks.
+const NODES = [
+  { id: "you", label: "You", x: 210, y: 170, kind: "you" },
+  { id: "priya", label: "Priya · Y3", x: 370, y: 90, kind: "student" },
+  { id: "karthik", label: "Karthik · Y2", x: 360, y: 270, kind: "student" },
+  { id: "react", label: "React", x: 70, y: 80, kind: "skill" },
+  { id: "neo4j", label: "Neo4j", x: 250, y: 40, kind: "skill" },
+  { id: "ai", label: "AI Club", x: 60, y: 260, kind: "club" },
+  { id: "hack", label: "HackFest", x: 200, y: 320, kind: "project" }
 ];
+const EDGES = [["you", "react"], ["you", "neo4j"], ["you", "ai"], ["priya", "neo4j"], ["priya", "react"], ["karthik", "ai"], ["karthik", "hack"], ["you", "hack"], ["you", "priya"]];
+const byId = Object.fromEntries(NODES.map((n) => [n.id, n]));
 
-const journey = [
-  ["Create your profile", "Add your branch, year, skills, interests, clubs, and upload a profile photo.", Upload],
-  ["Discover connections", "Browse and connect with students who match your academic and extracurricular interests.", Network],
-  ["Build relationships", "Send connection requests, join study groups, and collaborate on projects.", Compass],
-  ["Achieve together", "Work with your connections on assignments, hackathons, and campus initiatives.", CheckCircle2]
-];
-
-const stats = [
-  ["500+", "Active VITAP students"],
-  ["50+", "Study groups formed"],
-  ["4.8", "Average user rating"]
-];
-
-const highlights = [
-  "Connect with verified VITAP University students",
-  "Find teammates for hackathons and projects",
-  "Join study groups for better learning",
-  "Secure messaging and real-time notifications"
-];
-
-function Reveal({ children, className = "" }) {
+function GraphIllustration() {
   return (
-    <motion.div className={className} variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.6, ease: "easeOut" }}>
-      {children}
-    </motion.div>
+    <svg viewBox="0 0 440 360" className="h-auto w-full" role="img" aria-label="A student graph connecting you to classmates through shared skills, clubs and projects">
+      {EDGES.map(([a, b]) => {
+        const from = byId[a];
+        const to = byId[b];
+        const strong = a === "you" && b === "priya";
+        return (
+          <line key={a + b} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+            className={strong ? "stroke-accent" : "stroke-line-strong"}
+            strokeWidth={strong ? 2 : 1.25} strokeDasharray={strong ? "5 4" : undefined} />
+        );
+      })}
+      {NODES.map((n) => {
+        const isYou = n.kind === "you";
+        const isPerson = n.kind === "student" || isYou;
+        const w = n.label.length * 7.2 + 22;
+        return (
+          <g key={n.id} transform={`translate(${n.x} ${n.y})`}>
+            {isPerson ? (
+              <rect x={-w / 2} y={-15} width={w} height={30} rx={6} className={isYou ? "fill-ink" : "fill-surface stroke-ink"} strokeWidth={1.25} />
+            ) : (
+              <rect x={-w / 2} y={-13} width={w} height={26} rx={13} className="fill-sunken stroke-line-strong" strokeWidth={1} />
+            )}
+            <text textAnchor="middle" dominantBaseline="central" className={`${isYou ? "fill-bg" : "fill-ink"} font-mono`} fontSize={isPerson ? 12 : 11} fontWeight={500}>
+              {n.label}
+            </text>
+          </g>
+        );
+      })}
+      <g transform="translate(300 140)">
+        <rect x={-4} y={-11} width={86} height={22} rx={4} className="fill-accent" />
+        <text x={39} textAnchor="middle" dominantBaseline="central" className="fill-accent-ink font-mono" fontSize={11} fontWeight={600}>score 9</text>
+      </g>
+    </svg>
   );
 }
 
+const SIGNALS = [
+  ["Shared skill", "×3", "You both list React or Neo4j"],
+  ["Shared interest", "×2", "Both into AI, startups, open source…"],
+  ["Same department", "+2", "Same branch, same lab corridors"],
+  ["Mutual connection", "+1", "Each friend you have in common"],
+  ["Same year", "+1", "Taking the same courses right now"]
+];
+
+const FEATURES = [
+  ["Discover", "Search everyone on campus by name, registration number, skill, department or year."],
+  ["Collaborations", "Post a project or hackathon team, list the skills you need, and accept join requests."],
+  ["Messages", "Direct messages, group chats and a channel for every project — with read receipts."],
+  ["Calls", "One-click voice and video calls with screen sharing, right from a chat or project room."]
+];
+
 export default function Home() {
   const { user } = useAuth();
+  const primary = user ? { to: "/dashboard", label: "Open your dashboard" } : { to: "/register", label: "Join with your college email" };
+
   return (
-    <section className="relative overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
-      <div className="mx-auto max-w-7xl px-4 pb-16 pt-20 lg:min-h-[86vh] flex items-center">
-        <motion.div variants={stagger} initial="hidden" animate="visible" className="mx-auto max-w-4xl text-center">
-          <motion.div variants={fadeUp} className="mx-auto inline-flex items-center gap-2 rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
-            <Sparkles size={16} /> VITAP University Community
-          </motion.div>
-          <motion.h1 variants={fadeUp} className="mt-6 font-display text-5xl font-bold leading-tight tracking-tight md:text-7xl">
-            Connect with the right classmates for your next big project.
-          </motion.h1>
-          <motion.p variants={fadeUp} className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-            VITAP Connect helps VITAP University students find study partners, form project teams, and build lasting academic relationships through shared interests and goals.
-          </motion.p>
-          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap justify-center gap-3">
-            {user ? (
-              <Link className="btn-primary inline-flex items-center gap-2" to="/dashboard">Go to Dashboard <ArrowRight size={18} /></Link>
-            ) : (
-              <>
-                <Link className="btn-primary inline-flex items-center gap-2 !px-5 !py-2.5 text-sm sm:!px-6 sm:!py-3 sm:text-base" to="/register">Start connecting <ArrowRight size={18} /></Link>
-                <Link className="btn-secondary px-6 text-sm sm:px-8 sm:text-base" to="/login">Login</Link>
-              </>
-            )}
-          </motion.div>
-          <motion.div variants={fadeUp} className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-3">
-            {stats.map(([value, label]) => (
-              <div key={label} className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
-                <p className="font-display text-3xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
-                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{label}</p>
-              </div>
-            ))}
-          </motion.div>
-        </motion.div>
-      </div>
-
-      <Reveal className="mx-auto max-w-7xl px-4 py-14">
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          {features.map(([title, text, Icon]) => (
-            <motion.article key={title} className="card group" whileHover={{ y: -8 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-900 transition group-hover:scale-105 dark:bg-slate-800 dark:text-slate-100">
-                <Icon />
-              </div>
-              <h3 className="mt-5 font-display text-xl font-bold">{title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{text}</p>
-            </motion.article>
-          ))}
-        </div>
-      </Reveal>
-
-      {/* Neo4j Graph Showcase */}
-      <Reveal className="mx-auto max-w-7xl px-4 py-10">
-        <GraphShowcase />
-      </Reveal>
-
-      <div className="mx-auto max-w-7xl px-4 py-16">
-        <Reveal className="mx-auto max-w-3xl text-center">
-          <span className="tag">How it works</span>
-          <h2 className="mt-4 font-display text-4xl font-bold md:text-5xl">From profile to project partner in four simple steps.</h2>
-          <p className="mt-4 text-slate-600 dark:text-slate-300">Connect with classmates who share your academic interests and form successful study groups and project teams.</p>
-        </Reveal>
-
-        <div className="mt-12 grid gap-6 lg:grid-cols-4">
-          {journey.map(([title, text, Icon], index) => (
-            <Reveal key={title}>
-              <div className="relative h-full rounded-[2rem] border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-slate-900/80">
-                <div className="flex items-center justify-between">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white">
-                    <Icon />
-                  </div>
-                  <span className="font-display text-5xl font-bold text-slate-900 dark:text-white/10">0{index + 1}</span>
-                </div>
-                <h3 className="mt-6 font-display text-xl font-bold">{title}</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{text}</p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-7xl px-4 py-16">
-        <div className="grid items-center gap-8 rounded-[2.5rem] border border-white/70 bg-slate-950 p-6 md:p-10 lg:grid-cols-[0.9fr_1.1fr] dark:border-white/10">
-          <Reveal>
-            <span className="rounded-full bg-slate-800/90 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-100">Dashboard preview</span>
-            <h2 className="mt-5 font-display text-4xl font-bold text-white">Everything you need to connect and collaborate.</h2>
-            <p className="mt-4 leading-7 text-slate-300">Your personalized dashboard shows recommended connections, study group invitations, project opportunities, and direct messages from classmates.</p>
-          </Reveal>
-          <Reveal>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {highlights.map((item) => (
-                <div key={item} className="rounded-3xl border border-white/10 bg-white/10 p-5 text-sm font-semibold text-slate-100 backdrop-blur">
-                  <CheckCircle2 className="mb-4 text-emerald-300" />
-                  {item}
-                </div>
-              ))}
+    <>
+      {/* Hero */}
+      <section className="border-b border-line">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:py-24">
+          <div className="animate-fade-up">
+            <p className="eyebrow flex items-center gap-2"><span className="h-2 w-2 rounded-sm bg-accent" /> For VIT-AP students</p>
+            <h1 className="mt-5 text-balance text-5xl font-semibold leading-[0.98] sm:text-6xl lg:text-7xl">
+              Find the classmate who can build the other half.
+            </h1>
+            <p className="mt-6 max-w-xl text-lg text-ink-2">
+              VITAP Connect maps who knows what across campus, then points you to the teammates your project is missing. No group-chat spam, no cold DMs to strangers.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to={primary.to} className="btn btn-accent btn-lg">{primary.label} <ArrowRight size={16} /></Link>
+              {!user && <Link to="/login" className="btn btn-secondary btn-lg">I already have an account</Link>}
             </div>
-          </Reveal>
-        </div>
-      </div>
-
-      <Reveal className="mx-auto max-w-7xl px-4 py-16">
-        <div className="rounded-[2.5rem] border border-slate-200 bg-slate-900 p-8 text-white md:p-12 dark:border-slate-700 dark:bg-slate-950">
-          <div className="relative grid items-center gap-8 lg:grid-cols-[1fr_auto]">
-            <div>
-              <span className="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold uppercase tracking-[0.16em] text-slate-200">Join the community</span>
-              <h2 className="mt-5 font-display text-4xl font-bold md:text-5xl">Start building your academic network today.</h2>
-              <p className="mt-4 max-w-2xl text-slate-300">Connect with fellow VITAP students, find project partners, and make the most of your university experience.</p>
+            <p className="mt-6 font-mono text-xs text-ink-3">Sign-up needs an @vitapstudent.ac.in address · Free</p>
+          </div>
+          <div className="grid-paper rounded-xl border border-line bg-surface p-4 sm:p-6">
+            <div className="mb-2 flex items-center justify-between font-mono text-[11px] text-ink-3">
+              <span>match_graph.cypher</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-ok" /> live</span>
             </div>
-            <Link className="rounded-full bg-white px-6 py-3 md:py-4 font-bold text-slate-900 transition hover:bg-slate-100 text-sm md:text-base text-center" to="/register">Create profile</Link>
+            <GraphIllustration />
           </div>
         </div>
-      </Reveal>
-    </section>
+      </section>
+
+      {/* How matching works */}
+      <section className="border-b border-line">
+        <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:py-20">
+          <div>
+            <p className="eyebrow text-accent">How matching works</p>
+            <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">Recommendations you can actually read.</h2>
+            <p className="mt-4 text-ink-2">
+              Every student, skill, club and project is a node in a Neo4j graph. To rank people for you, we walk that graph and add up a simple score — and we tell you which signal put someone on your list.
+            </p>
+          </div>
+          <div className="panel overflow-hidden">
+            <div className="grid grid-cols-[1fr_auto] border-b border-line bg-sunken px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3 sm:grid-cols-[1fr_1.4fr_auto]">
+              <span>Signal</span>
+              <span className="hidden sm:block">Example</span>
+              <span>Weight</span>
+            </div>
+            {SIGNALS.map(([signal, weight, example]) => (
+              <div key={signal} className="grid grid-cols-[1fr_auto] items-center gap-4 border-b border-line px-5 py-4 last:border-0 sm:grid-cols-[1fr_1.4fr_auto]">
+                <span className="font-semibold">{signal}</span>
+                <span className="hidden text-sm text-ink-2 sm:block">{example}</span>
+                <span className="font-mono text-lg font-medium text-accent">{weight}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="border-b border-line">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
+          <p className="eyebrow">What&apos;s inside</p>
+          <div className="mt-6 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2">
+            {FEATURES.map(([title, text], i) => (
+              <div key={title} className="bg-surface p-6 sm:p-8">
+                <span className="font-mono text-xs text-ink-3">{String(i + 1).padStart(2, "0")}</span>
+                <h3 className="mt-3 text-2xl font-semibold">{title}</h3>
+                <p className="mt-2 text-ink-2">{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section>
+        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-4 py-16 sm:px-6 md:flex-row md:items-center lg:py-20">
+          <h2 className="max-w-2xl text-balance text-3xl font-semibold sm:text-4xl">Your next teammate is probably two buildings away.</h2>
+          <Link to={primary.to} className="btn btn-primary btn-lg">{user ? "Go to dashboard" : "Create your profile"} <ArrowUpRight size={16} /></Link>
+        </div>
+      </section>
+    </>
   );
 }

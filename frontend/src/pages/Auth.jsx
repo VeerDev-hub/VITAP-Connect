@@ -1,384 +1,276 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { Eye, EyeOff, ShieldCheck, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Controller, useForm } from "react-hook-form";
+import { ArrowLeft, ArrowRight, MailCheck } from "lucide-react";
 import toast from "react-hot-toast";
-import { api } from "../services/api";
+import AuthLayout from "../components/layout/AuthLayout";
+import { Field, OtpInput, PasswordInput, PasswordStrength, TagInput } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import { AVAILABILITY, COLLEGE_DOMAIN, DEPARTMENTS, GOALS, INTERESTS, SKILLS } from "../lib/constants";
+import { apiErrorMessage } from "../lib/format";
+import { api } from "../services/api";
 
-const skills = ["React", "Node.js", "Express", "Neo4j", "Python", "Java", "UI Design", "Machine Learning", "Data Analysis", "Tailwind CSS"];
-const interests = ["AI", "Web Development", "Hackathons", "Open Source", "Startups", "Cloud", "Cybersecurity", "Mobile Apps", "Research"];
-const departments = ["Computer Science", "Information Technology", "Electronics", "Mechanical", "Civil", "Business"];
-const collegeDomain = "@vitapstudent.ac.in";
+function useCooldown() {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!seconds) return undefined;
+    const t = setTimeout(() => setSeconds((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [seconds]);
+  return [seconds, () => setSeconds(60)];
+}
 
-export default function Auth({ mode }) {
-  const isRegister = mode === "register";
-  const { login, register } = useAuth();
+const LOGIN_ASIDE = (
+  <>
+    <p className="eyebrow text-accent">Welcome back</p>
+    <h2 className="mt-3 text-4xl font-semibold leading-[1.05]">Your teams, chats and requests are where you left them.</h2>
+    <ul className="mt-8 space-y-3 text-sm text-ink-2">
+      <li className="flex gap-3"><span className="font-mono text-ink-3">01</span> Pick up conversations with your connections</li>
+      <li className="flex gap-3"><span className="font-mono text-ink-3">02</span> Review join requests on your projects</li>
+      <li className="flex gap-3"><span className="font-mono text-ink-3">03</span> Jump into a team call from any room</li>
+    </ul>
+  </>
+);
+
+const REGISTER_ASIDE = (
+  <>
+    <p className="eyebrow text-accent">Students only</p>
+    <h2 className="mt-3 text-4xl font-semibold leading-[1.05]">Built for people with a <span className="font-mono text-[0.8em]">@vitapstudent</span> address.</h2>
+    <p className="mt-4 text-ink-2">Every account is verified with a one-time code sent to your college inbox — no outsiders, no fake profiles.</p>
+  </>
+);
+
+function Login() {
+  const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
 
-  // Registration multi-step state
-  const [regStep, setRegStep] = useState(1); // 1 = email+OTP, 2 = fill profile
-  const [verifiedEmail, setVerifiedEmail] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  async function onSubmit(values) {
+    try {
+      await login(values);
+      toast.success("Welcome back");
+      navigate(location.state?.from || "/dashboard", { replace: true });
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Login failed"));
+    }
+  }
 
-  // Step-1 form (email only)
-  const {
-    register: f1,
-    handleSubmit: hs1,
-    formState: { isSubmitting: s1, errors: e1 },
-    getValues: gv1,
-  } = useForm();
+  return (
+    <AuthLayout aside={LOGIN_ASIDE}>
+      <h1 className="text-3xl font-semibold">Log in</h1>
+      <p className="mt-2 text-ink-2">Use the college email you registered with.</p>
+      <form className="mt-8 space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <Field label="College email" htmlFor="login-email" error={errors.email?.message}>
+          <input id="login-email" className="input" type="email" autoComplete="email" placeholder={`name.23bce1234${COLLEGE_DOMAIN}`} {...register("email", { required: "Enter your email" })} />
+        </Field>
+        <Field
+          label={<span className="flex justify-between"><span>Password</span><Link to="/forgot-password" className="font-medium text-ink-3 hover:text-ink">Forgot?</Link></span>}
+          htmlFor="login-password"
+          error={errors.password?.message}
+        >
+          <PasswordInput id="login-password" autoComplete="current-password" placeholder="••••••••" {...register("password", { required: "Enter your password" })} />
+        </Field>
+        <button className="btn btn-primary btn-lg w-full" disabled={isSubmitting}>
+          {isSubmitting ? "Logging in…" : <>Log in <ArrowRight size={16} /></>}
+        </button>
+      </form>
+      <p className="mt-8 border-t border-line pt-6 text-sm text-ink-2">
+        New here? <Link to="/register" className="link">Create an account</Link>
+      </p>
+    </AuthLayout>
+  );
+}
 
-  // Step-2 / login form (profile + OTP)
-  const {
-    register: field,
-    handleSubmit,
-    watch,
-    formState: { errors, isSubmitting },
-  } = useForm({
-    defaultValues: { year: 3, graduationYear: new Date().getFullYear() + 1 },
+function StepHeader({ step }) {
+  return (
+    <div className="mb-8 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.14em]">
+      {["Verify email", "Your profile"].map((label, i) => (
+        <span key={label} className={`flex items-center gap-2 ${step === i + 1 ? "text-ink" : "text-ink-3"}`}>
+          <span className={`flex h-5 w-5 items-center justify-center rounded text-[10px] ${step > i + 1 ? "bg-ok text-white" : step === i + 1 ? "bg-ink text-bg" : "border border-line-strong"}`}>
+            {step > i + 1 ? "✓" : i + 1}
+          </span>
+          {label}
+          {i === 0 && <span className="mx-1 h-px w-6 bg-line-strong" />}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Register() {
+  const { register: createAccount } = useAuth();
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
+  const [email, setEmail] = useState("");
+  const [cooldown, startCooldown] = useCooldown();
+
+  const emailForm = useForm();
+  const { register, handleSubmit, control, watch, formState: { errors, isSubmitting } } = useForm({
+    defaultValues: { otp: "", year: 3, graduationYear: new Date().getFullYear() + 1, skills: [], interests: [], goal: GOALS[0], availability: AVAILABILITY[0] }
   });
   const password = watch("password");
 
-  // ── Step 1: Send OTP ──────────────────────────────────────────────────────
-  async function sendOtp(data) {
+  async function sendOtp({ email: raw }) {
     try {
-      await api.post("/auth/send-register-otp", { email: data.email });
-      setVerifiedEmail(data.email.toLowerCase().trim());
-      setOtpSent(true);
-      setRegStep(2);
+      await api.post("/auth/send-register-otp", { email: raw });
+      setEmail(raw.toLowerCase().trim());
+      setStep(2);
       startCooldown();
-      toast.success("OTP sent to your college email!");
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to send OTP");
+      toast.success("Code sent — check your college inbox");
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Could not send the code"));
     }
   }
 
-  function startCooldown() {
-    setResendCooldown(60);
-    const timer = setInterval(() => {
-      setResendCooldown((prev) => {
-        if (prev <= 1) { clearInterval(timer); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-  }
-
-  async function resendOtp() {
-    if (resendCooldown > 0) return;
+  async function resend() {
+    if (cooldown) return;
     try {
-      await api.post("/auth/send-register-otp", { email: verifiedEmail });
-      toast.success("New OTP sent!");
+      await api.post("/auth/send-register-otp", { email });
       startCooldown();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to resend OTP");
+      toast.success("New code sent");
+    } catch (error) {
+      toast.error(apiErrorMessage(error, "Could not resend the code"));
     }
   }
 
-  // ── Final submit ──────────────────────────────────────────────────────────
   async function onSubmit(values) {
     try {
-      if (isRegister && values.password !== values.confirmPassword) {
-        toast.error("Passwords do not match");
-        return;
-      }
-      if (isRegister) {
-        await register({ ...values, email: verifiedEmail });
-        toast.success("Account created. Welcome to VITAP Connect");
-      } else {
-        await login(values);
-        toast.success("Welcome back");
-      }
+      await createAccount({ ...values, email });
+      toast.success("Account created — welcome!");
       navigate("/dashboard");
     } catch (error) {
-      toast.error(error.response?.data?.message || "Authentication failed");
+      toast.error(apiErrorMessage(error, "Could not create your account"));
     }
   }
 
   return (
-    <section className="relative overflow-hidden px-4 py-6 sm:py-12 bg-slate-50 dark:bg-slate-950 min-h-screen flex items-center">
-      <div className="mx-auto grid max-w-6xl items-center gap-6 lg:grid-cols-[0.85fr_1.15fr] w-full">
-        {/* Left panel */}
-        <div className="card bg-slate-950 text-white dark:bg-slate-900">
-          <span className="inline-flex items-center gap-2 rounded-full bg-slate-800/90 px-4 py-2 text-sm font-semibold text-slate-100 dark:bg-slate-700/90 dark:text-slate-100">
-            <Sparkles size={16} /> VITAP student network
-          </span>
-          <h1 className="mt-6 font-display text-5xl font-bold">
-            {isRegister ? "Join VITAP Connect with your college email." : "Login to VITAP Connect."}
-          </h1>
-          <p className="mt-5 leading-7 text-slate-300">
-            {isRegister
-              ? "Verify your VIT-AP student email with a one-time code to create your account and join your campus network."
-              : "Sign in with your VIT-AP student account to continue your chats, projects, and campus connections."}
+    <AuthLayout aside={REGISTER_ASIDE}>
+      <StepHeader step={step} />
+
+      {step === 1 && (
+        <>
+          <h1 className="text-3xl font-semibold">Create your account</h1>
+          <p className="mt-2 text-ink-2">We&apos;ll email a 6-digit code to confirm you&apos;re a VIT-AP student.</p>
+          <form className="mt-8 space-y-4" onSubmit={emailForm.handleSubmit(sendOtp)} noValidate>
+            <Field label="College email" htmlFor="reg-email" error={emailForm.formState.errors.email?.message}>
+              <input
+                id="reg-email"
+                className="input"
+                type="email"
+                autoComplete="email"
+                placeholder={`name.23bce1234${COLLEGE_DOMAIN}`}
+                {...emailForm.register("email", {
+                  required: "Enter your college email",
+                  validate: (v) => v.toLowerCase().trim().endsWith(COLLEGE_DOMAIN) || `Must end with ${COLLEGE_DOMAIN}`
+                })}
+              />
+            </Field>
+            <button className="btn btn-primary btn-lg w-full" disabled={emailForm.formState.isSubmitting}>
+              {emailForm.formState.isSubmitting ? "Sending code…" : <>Send verification code <ArrowRight size={16} /></>}
+            </button>
+          </form>
+          <p className="mt-8 border-t border-line pt-6 text-sm text-ink-2">
+            Already registered? <Link to="/login" className="link">Log in</Link>
           </p>
-          <div className="mt-8 grid gap-4 text-sm text-slate-200">
-            <p className="flex items-center gap-3"><ShieldCheck className="text-emerald-300" /> College email restriction only</p>
-            {isRegister
-              ? <p className="flex items-center gap-3"><ShieldCheck className="text-indigo-300" /> Email OTP verification — no fake accounts</p>
-              : <p className="flex items-center gap-3"><ShieldCheck className="text-blue-300" /> Instant account access after signup</p>
-            }
-          </div>
-        </div>
+        </>
+      )}
 
-        {/* Right panel */}
-        {isRegister ? (
-          <div className="card space-y-5">
-            {/* Step indicator */}
-            <div className="flex items-center gap-3">
-              <StepDot active={regStep >= 1} done={regStep > 1} label="1" />
-              <div className={`flex-1 h-0.5 rounded ${regStep > 1 ? "bg-indigo-500" : "bg-slate-200 dark:bg-slate-700"}`} />
-              <StepDot active={regStep >= 2} done={false} label="2" />
+      {step === 2 && (
+        <form className="space-y-8" onSubmit={handleSubmit(onSubmit)} noValidate>
+          <section>
+            <div className="flex items-start gap-3 rounded-md border border-line bg-sunken p-3 text-sm">
+              <MailCheck size={18} className="mt-0.5 shrink-0 text-ok" />
+              <p className="text-ink-2">Code sent to <span className="font-semibold text-ink">{email}</span>. It expires in 10 minutes.</p>
             </div>
-
-            {/* ── STEP 1: Email + send OTP ─────────────────────────────────── */}
-            {regStep === 1 && (
-              <form className="space-y-4" onSubmit={hs1(sendOtp)}>
-                <div>
-                  <h2 className="font-display text-3xl font-bold">Create account</h2>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Enter your VIT-AP email. We'll send a verification code before creating your account.
-                  </p>
-                </div>
-                <input
-                  id="reg-email"
-                  className="input"
-                  type="email"
-                  placeholder={`name${collegeDomain}`}
-                  {...f1("email", {
-                    required: "Email is required",
-                    validate: (v) => v.toLowerCase().endsWith(collegeDomain) || `Use your ${collegeDomain} email`,
-                  })}
-                />
-                {e1.email && <p className="text-sm font-semibold text-rose-600">{e1.email.message}</p>}
-                <button className="btn-primary w-full" disabled={s1}>
-                  {s1 ? "Sending OTP…" : "Send Verification Code"}
-                </button>
-                <p className="text-center text-sm text-slate-500">
-                  Already have an account?{" "}
-                  <Link className="font-semibold text-slate-900 dark:text-slate-100" to="/login">Login</Link>
-                </p>
-              </form>
-            )}
-
-            {/* ── STEP 2: OTP + profile fields ─────────────────────────────── */}
-            {regStep === 2 && (
-              <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-                <div>
-                  <h2 className="font-display text-3xl font-bold">Verify & Create</h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Code sent to{" "}
-                    <span className="font-medium text-indigo-500">{verifiedEmail}</span>.
-                    Fill in your profile and paste the OTP to finish.
-                  </p>
-                </div>
-
-                {/* OTP box at top */}
-                <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 p-4 space-y-2">
-                  <label htmlFor="reg-otp" className="block text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-                    6-Digit Verification Code
-                  </label>
-                  <input
-                    id="reg-otp"
-                    className="input tracking-[0.5em] text-center text-xl font-bold placeholder:tracking-normal"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="——————"
-                    autoComplete="one-time-code"
-                    {...field("otp", {
-                      required: "OTP is required",
-                      pattern: { value: /^\d{6}$/, message: "Enter the 6-digit code" },
-                    })}
-                  />
-                  {errors.otp && <p className="text-xs text-red-500">{errors.otp.message}</p>}
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <button
-                      type="button"
-                      className="font-semibold text-indigo-600 dark:text-indigo-400 disabled:opacity-40"
-                      onClick={resendOtp}
-                      disabled={resendCooldown > 0}
-                    >
-                      {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
-                    </button>
-                    <button type="button" className="underline" onClick={() => { setRegStep(1); setOtpSent(false); }}>
-                      Change email
-                    </button>
-                  </div>
-                </div>
-
-                {/* Profile fields with labels */}
-                <div>
-                  <label htmlFor="reg-name" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Full Name</label>
-                  <input id="reg-name" className="input" placeholder="Enter your full name" {...field("name", { required: "Name is required" })} />
-                </div>
-
-                <div>
-                  <label htmlFor="reg-password" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Password</label>
-                  <div className="relative">
-                    <input id="reg-password" title="Min 8 characters, must match confirm password" className="input pr-10" type={showPassword ? "text" : "password"} placeholder="Min 8 characters" {...field("password", { required: "Password is required", minLength: { value: 8, message: "Use at least 8 characters" }, maxLength: { value: 32, message: "Maximum 32 characters" } })} />
-                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" onClick={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {password && <PasswordStrength password={password} />}
-                </div>
-
-                <div>
-                  <label htmlFor="reg-confirm" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Confirm Password</label>
-                  <div className="relative">
-                    <input id="reg-confirm" className="input pr-10" type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter password" {...field("confirmPassword", { validate: (v) => v === password || "Passwords do not match" })} />
-                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {errors.confirmPassword && <p className="text-xs font-semibold text-rose-500 mt-1">{errors.confirmPassword.message}</p>}
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="reg-dept" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Department</label>
-                    <input id="reg-dept" className="input" list="department-list" placeholder="Select department" {...field("department", { required: true })} />
-                  </div>
-                  <div>
-                    <label htmlFor="reg-year" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Current Year</label>
-                    <input id="reg-year" className="input" type="number" min="1" max="5" placeholder="e.g. 3" {...field("year", { required: true })} />
-                  </div>
-                  <div>
-                    <label htmlFor="reg-grad" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Graduation Year</label>
-                    <input id="reg-grad" className="input" type="number" min="2026" max="2035" placeholder="e.g. 2028" {...field("graduationYear", { required: true })} />
-                  </div>
-                  <div>
-                    <label htmlFor="reg-club" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Club / Society</label>
-                    <input id="reg-club" className="input" placeholder="Optional" {...field("club")} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label htmlFor="reg-skills" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Skills <span className="text-xs font-normal text-slate-500">(comma-separated)</span></label>
-                    <input id="reg-skills" className="input" list="skill-list" placeholder="e.g. React, Node.js, UI Design" {...field("skills", { required: true })} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label htmlFor="reg-interests" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Interests <span className="text-xs font-normal text-slate-500">(comma-separated)</span></label>
-                    <input id="reg-interests" className="input" list="interest-list" placeholder="e.g. AI, Web Development, Startups" {...field("interests", { required: true })} />
-                  </div>
-                  <div>
-                    <label htmlFor="reg-goal" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Goal</label>
-                    <select id="reg-goal" className="input" {...field("goal")}>
-                      <option>Find project partners</option>
-                      <option>Join hackathon teams</option>
-                      <option>Learn from seniors</option>
-                      <option>Build portfolio projects</option>
-                      <option>Research</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="reg-avail" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Availability</label>
-                    <select id="reg-avail" className="input" {...field("availability")}>
-                      <option>Evenings</option><option>Weekends</option>
-                      <option>After classes</option><option>Flexible</option>
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label htmlFor="reg-bio" className="block mb-1 text-sm font-semibold text-slate-700 dark:text-slate-300">Bio</label>
-                    <textarea id="reg-bio" className="input" rows="2" placeholder="What do you want to build?" {...field("bio")} />
-                  </div>
-                </div>
-
-                {(errors.email || errors.password || errors.name) && (
-                  <p className="text-sm font-semibold text-rose-600">
-                    {errors.name?.message || errors.email?.message || errors.password?.message}
-                  </p>
-                )}
-
-                <button className="btn-primary w-full" disabled={isSubmitting}>
-                  {isSubmitting ? "Creating account…" : "Verify & Create Account"}
-                </button>
-                <p className="text-center text-sm text-slate-500">
-                  Already have an account?{" "}
-                  <Link className="font-semibold text-slate-900 dark:text-slate-100" to="/login">Login</Link>
-                </p>
-              </form>
-            )}
-          </div>
-        ) : (
-          /* ── LOGIN FORM (unchanged) ────────────────────────────────────── */
-          <form className="card space-y-4" onSubmit={handleSubmit(onSubmit)}>
-            <div>
-              <h2 className="font-display text-3xl font-bold">Welcome back</h2>
-              <p className="mt-2 text-sm text-slate-500">Login with your registered VIT-AP email and password.</p>
-            </div>
-            <input className="input" type="email" placeholder={`name${collegeDomain}`} {...field("email", { required: "Email is required" })} />
-            <div className="relative">
-              <input className="input pr-10" type={showPassword ? "text" : "password"} placeholder="Password" {...field("password", { required: "Password is required", minLength: { value: 6, message: "Use at least 6 characters" } })} />
-              <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            <Field label="Verification code" className="mt-4" error={errors.otp?.message}>
+              <Controller
+                name="otp"
+                control={control}
+                rules={{ validate: (v) => /^\d{6}$/.test(v) || "Enter all 6 digits" }}
+                render={({ field }) => <OtpInput value={field.value} onChange={field.onChange} autoFocus />}
+              />
+            </Field>
+            <div className="mt-2 flex justify-between text-xs">
+              <button type="button" onClick={resend} disabled={cooldown > 0} className="font-semibold text-ink-2 hover:text-ink disabled:text-ink-3">
+                {cooldown ? `Resend in ${cooldown}s` : "Resend code"}
+              </button>
+              <button type="button" onClick={() => setStep(1)} className="inline-flex items-center gap-1 font-semibold text-ink-2 hover:text-ink">
+                <ArrowLeft size={12} /> Change email
               </button>
             </div>
-            {(errors.email || errors.password) && (
-              <p className="text-sm font-semibold text-rose-600">{errors.email?.message || errors.password?.message}</p>
-            )}
-            <button className="btn-primary w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Please wait..." : "Login"}
-            </button>
-            <p className="text-center text-sm text-slate-500">
-              <Link className="font-semibold text-slate-900 dark:text-slate-100" to="/forgot-password">Forgot Password?</Link>
-            </p>
-            <p className="text-center text-sm text-slate-500">
-              New to VITAP Connect?{" "}
-              <Link className="font-semibold text-slate-900 dark:text-slate-100" to="/register">Register</Link>
-            </p>
-          </form>
-        )}
-      </div>
-      <datalist id="skill-list">{skills.map((item) => <option key={item} value={item} />)}</datalist>
-      <datalist id="interest-list">{interests.map((item) => <option key={item} value={item} />)}</datalist>
-      <datalist id="department-list">{departments.map((item) => <option key={item} value={item} />)}</datalist>
-    </section>
+          </section>
+
+          <section className="space-y-4">
+            <p className="eyebrow">Account</p>
+            <Field label="Full name" htmlFor="reg-name" error={errors.name?.message}>
+              <input id="reg-name" className="input" autoComplete="name" {...register("name", { required: "Enter your name" })} />
+            </Field>
+            <Field label="Password" htmlFor="reg-password" error={errors.password?.message}>
+              <PasswordInput
+                id="reg-password"
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                {...register("password", { required: "Choose a password", minLength: { value: 8, message: "Use at least 8 characters" }, maxLength: { value: 64, message: "Too long" } })}
+              />
+              {password && <PasswordStrength password={password} />}
+            </Field>
+            <Field label="Confirm password" htmlFor="reg-confirm" error={errors.confirmPassword?.message}>
+              <PasswordInput id="reg-confirm" autoComplete="new-password" {...register("confirmPassword", { validate: (v) => v === password || "Passwords don't match" })} />
+            </Field>
+          </section>
+
+          <section className="space-y-4">
+            <p className="eyebrow">Academics</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Department" htmlFor="reg-dept" className="sm:col-span-2" error={errors.department && "Choose your department"}>
+                <input id="reg-dept" className="input" list="department-list" placeholder="e.g. Computer Science" {...register("department", { required: true })} />
+              </Field>
+              <Field label="Current year" htmlFor="reg-year">
+                <input id="reg-year" className="input" type="number" min="1" max="5" {...register("year", { required: true })} />
+              </Field>
+              <Field label="Graduating in" htmlFor="reg-grad">
+                <input id="reg-grad" className="input" type="number" min="2024" max="2035" {...register("graduationYear", { required: true })} />
+              </Field>
+              <Field label="Club or society" hint="optional" htmlFor="reg-club" className="sm:col-span-2">
+                <input id="reg-club" className="input" {...register("club")} />
+              </Field>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <p className="eyebrow">What you bring</p>
+            <Field label="Skills" htmlFor="reg-skills" error={errors.skills && "Add at least one skill"}>
+              <Controller name="skills" control={control} rules={{ validate: (v) => v.length > 0 }} render={({ field }) => <TagInput id="reg-skills" value={field.value} onChange={field.onChange} suggestions={SKILLS} />} />
+            </Field>
+            <Field label="Interests" htmlFor="reg-interests" error={errors.interests && "Add at least one interest"}>
+              <Controller name="interests" control={control} rules={{ validate: (v) => v.length > 0 }} render={({ field }) => <TagInput id="reg-interests" value={field.value} onChange={field.onChange} suggestions={INTERESTS} />} />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Main goal" htmlFor="reg-goal">
+                <select id="reg-goal" className="input" {...register("goal")}>{GOALS.map((g) => <option key={g}>{g}</option>)}</select>
+              </Field>
+              <Field label="Usually free" htmlFor="reg-avail">
+                <select id="reg-avail" className="input" {...register("availability")}>{AVAILABILITY.map((a) => <option key={a}>{a}</option>)}</select>
+              </Field>
+            </div>
+            <Field label="Short bio" hint="optional" htmlFor="reg-bio">
+              <textarea id="reg-bio" className="input" rows={3} placeholder="What do you want to build this semester?" {...register("bio")} />
+            </Field>
+          </section>
+
+          <button className="btn btn-primary btn-lg w-full" disabled={isSubmitting}>
+            {isSubmitting ? "Creating account…" : <>Create account <ArrowRight size={16} /></>}
+          </button>
+          <datalist id="department-list">{DEPARTMENTS.map((d) => <option key={d} value={d} />)}</datalist>
+        </form>
+      )}
+    </AuthLayout>
   );
 }
 
-function StepDot({ active, done, label }) {
-  return (
-    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors
-      ${done ? "bg-indigo-500 text-white" : active ? "border-2 border-indigo-500 text-indigo-500" : "border-2 border-slate-300 dark:border-slate-600 text-slate-400"}`}>
-      {done ? "✓" : label}
-    </div>
-  );
+export default function Auth({ mode }) {
+  const { user, loading } = useAuth();
+  if (!loading && user) return <Navigate to="/dashboard" replace />;
+  return mode === "register" ? <Register /> : <Login />;
 }
-
-function PasswordStrength({ password }) {
-  const score = (() => {
-    let s = 0;
-    if (password.length >= 8) s++;
-    if (/[A-Z]/.test(password)) s++;
-    if (/[0-9]/.test(password)) s++;
-    if (/[^A-Za-z0-9]/.test(password)) s++;
-    return s;
-  })();
-
-  const levels = [
-    { label: "Too short", color: "bg-slate-200" },
-    { label: "Weak", color: "bg-rose-500" },
-    { label: "Fair", color: "bg-amber-500" },
-    { label: "Good", color: "bg-emerald-500" },
-    { label: "Strong", color: "bg-sky-500" },
-  ];
-
-  const current = password.length < 8 ? levels[0] : levels[score];
-
-  return (
-    <div className="mt-2 space-y-1.5">
-      <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
-        <span className="text-slate-500">Security level</span>
-        <span className={password.length < 8 ? "text-slate-400" : current.color.replace("bg-", "text-")}>{current.label}</span>
-      </div>
-      <div className="flex gap-1 h-1">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className={`flex-1 rounded-full transition-colors duration-500 ${i <= score && password.length >= 8 ? current.color : "bg-slate-100 dark:bg-slate-800"}`} />
-        ))}
-      </div>
-    </div>
-  );
-}
-

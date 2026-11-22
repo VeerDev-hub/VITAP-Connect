@@ -4,6 +4,31 @@ import { Phone, PhoneOff, Video } from "lucide-react";
 import toast from "react-hot-toast";
 import { getSocket } from "../services/socket";
 import { useAuth } from "../context/AuthContext";
+import { Avatar } from "./ui";
+
+function callUrl({ roomId, callType, title, peerId, peerName }) {
+  return `/project-call/${roomId}?type=${callType}&project=${encodeURIComponent(title)}&private=1&peerId=${peerId}&peerName=${encodeURIComponent(peerName)}`;
+}
+
+function CallCard({ eyebrow, name, detail, callType, children, pulse }) {
+  const Icon = callType === "video" ? Video : Phone;
+  return (
+    <div className="fixed inset-x-3 bottom-20 z-[60] mx-auto max-w-sm animate-fade-up rounded-xl border border-line bg-surface p-4 shadow-pop lg:bottom-6 lg:right-6 lg:left-auto lg:mx-0">
+      <div className="flex items-center gap-3">
+        <span className="relative">
+          <Avatar name={name} size="lg" />
+          {pulse && <span className="absolute inset-0 animate-ping rounded-md ring-2 ring-accent/60" />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="eyebrow flex items-center gap-1.5 text-accent"><Icon size={12} /> {eyebrow}</p>
+          <p className="truncate text-lg font-semibold">{name}</p>
+          <p className="truncate text-sm text-ink-2">{detail}</p>
+        </div>
+      </div>
+      <div className="mt-4 flex gap-2">{children}</div>
+    </div>
+  );
+}
 
 export default function IncomingCallModal() {
   const { user } = useAuth();
@@ -13,13 +38,11 @@ export default function IncomingCallModal() {
   const [outgoingCall, setOutgoingCall] = useState(null);
 
   useEffect(() => {
-    if (!user) return;
-
-    socket.auth = { token: localStorage.getItem("vitap_connect_token") };
+    if (!user) return undefined;
     if (!socket.connected) socket.connect();
     socket.emit("presence:join", { userName: user.name });
 
-    const handleStartCall = ({ detail }) => {
+    const onStartCall = ({ detail }) => {
       if (!detail) return;
       const payload = {
         roomId: detail.roomId,
@@ -32,131 +55,76 @@ export default function IncomingCallModal() {
       setOutgoingCall(payload);
       socket.emit("call:invite", payload);
     };
-
-    const handleIncomingCall = (payload) => {
-      setIncomingCall(payload);
-    };
-
-    const handleRinging = (payload) => {
-      setOutgoingCall((current) => current && current.roomId === payload.roomId ? { ...current, status: "ringing" } : current);
-    };
-
-    const handleInviteResponse = (payload) => {
+    const onInvite = (payload) => setIncomingCall(payload);
+    const onRinging = (payload) => setOutgoingCall((c) => (c && c.roomId === payload.roomId ? { ...c, status: "ringing" } : c));
+    const onResponse = (payload) => {
       if (payload.accepted) {
-        setOutgoingCall((current) => current && current.roomId === payload.roomId ? { ...current, status: "accepted" } : current);
-        toast.success(`${payload.fromUserName} joined the ${payload.callType} call`);
-        navigate(`/project-call/${payload.roomId}?type=${payload.callType}&project=${encodeURIComponent(payload.title || `${user.name} and ${payload.fromUserName}`)}&private=1&peerId=${payload.fromUserId}&peerName=${encodeURIComponent(payload.fromUserName)}`);
+        setOutgoingCall((c) => (c && c.roomId === payload.roomId ? { ...c, status: "accepted" } : c));
+        navigate(callUrl({ roomId: payload.roomId, callType: payload.callType, title: payload.title || `${user.name} and ${payload.fromUserName}`, peerId: payload.fromUserId, peerName: payload.fromUserName }));
         setTimeout(() => setOutgoingCall(null), 200);
       } else {
         setOutgoingCall(null);
         toast.error(`${payload.fromUserName} declined the call`);
       }
     };
-
-    const handleMissed = (payload) => {
-      setOutgoingCall((current) => current && current.roomId === payload.roomId ? null : current);
-      toast.error(`${payload.toUserName || "The user"} missed your call`);
+    const onMissed = (payload) => {
+      setOutgoingCall((c) => (c && c.roomId === payload.roomId ? null : c));
+      toast.error(`${payload.toUserName || "They"} didn't pick up`);
     };
+    const onExpired = (payload) => setIncomingCall((c) => (c?.roomId === payload.roomId ? null : c));
 
-    const handleInviteExpired = (payload) => {
-      if (incomingCall?.roomId === payload.roomId) {
-        setIncomingCall(null);
-      }
-    };
-
-    window.addEventListener("vitap:start-call", handleStartCall);
-    socket.on("call:invite", handleIncomingCall);
-    socket.on("call:ringing", handleRinging);
-    socket.on("call:invite-response", handleInviteResponse);
-    socket.on("call:missed", handleMissed);
-    socket.on("call:invite-expired", handleInviteExpired);
-
+    window.addEventListener("vitap:start-call", onStartCall);
+    socket.on("call:invite", onInvite);
+    socket.on("call:ringing", onRinging);
+    socket.on("call:invite-response", onResponse);
+    socket.on("call:missed", onMissed);
+    socket.on("call:invite-expired", onExpired);
     return () => {
-      window.removeEventListener("vitap:start-call", handleStartCall);
-      socket.off("call:invite", handleIncomingCall);
-      socket.off("call:ringing", handleRinging);
-      socket.off("call:invite-response", handleInviteResponse);
-      socket.off("call:missed", handleMissed);
-      socket.off("call:invite-expired", handleInviteExpired);
+      window.removeEventListener("vitap:start-call", onStartCall);
+      socket.off("call:invite", onInvite);
+      socket.off("call:ringing", onRinging);
+      socket.off("call:invite-response", onResponse);
+      socket.off("call:missed", onMissed);
+      socket.off("call:invite-expired", onExpired);
     };
-  }, [incomingCall?.roomId, navigate, socket, user]);
+  }, [navigate, socket, user]);
 
-  function acceptCall() {
-    socket.emit("call:invite-response", {
-      toUserId: incomingCall.fromUserId,
-      roomId: incomingCall.roomId,
-      accepted: true,
-      callType: incomingCall.callType,
-      title: incomingCall.title
-    });
-    navigate(`/project-call/${incomingCall.roomId}?type=${incomingCall.callType}&project=${encodeURIComponent(incomingCall.title || `Call with ${incomingCall.fromUserName}`)}&private=1&peerId=${incomingCall.fromUserId}&peerName=${encodeURIComponent(incomingCall.fromUserName)}`);
+  function respond(call, accepted) {
+    socket.emit("call:invite-response", { toUserId: call.fromUserId, roomId: call.roomId, accepted, callType: call.callType, title: call.title });
+  }
+
+  function accept() {
+    respond(incomingCall, true);
+    navigate(callUrl({ roomId: incomingCall.roomId, callType: incomingCall.callType, title: incomingCall.title || `Call with ${incomingCall.fromUserName}`, peerId: incomingCall.fromUserId, peerName: incomingCall.fromUserName }));
     setIncomingCall(null);
   }
 
-  function declineCall() {
-    socket.emit("call:invite-response", {
-      toUserId: incomingCall.fromUserId,
-      roomId: incomingCall.roomId,
-      accepted: false,
-      callType: incomingCall.callType,
-      title: incomingCall.title
-    });
+  function decline() {
+    respond(incomingCall, false);
     setIncomingCall(null);
   }
 
-  function cancelOutgoingCall() {
-    if (!outgoingCall) return;
-    socket.emit("call:invite-response", {
-      toUserId: outgoingCall.toUserId,
-      roomId: outgoingCall.roomId,
-      accepted: false,
-      callType: outgoingCall.callType,
-      title: outgoingCall.title
-    });
+  function cancelOutgoing() {
+    socket.emit("call:invite-response", { toUserId: outgoingCall.toUserId, roomId: outgoingCall.roomId, accepted: false, callType: outgoingCall.callType, title: outgoingCall.title });
     setOutgoingCall(null);
   }
 
-  return (
-    <>
-      {incomingCall && (
-        <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-[2rem] border border-white/70 bg-white/95 p-5 shadow-2xl backdrop-blur dark:border-white/10 dark:bg-slate-900/95">
-          <div className="flex items-start gap-4">
-            <div className="mt-1 rounded-2xl bg-slate-100 p-3 text-slate-900 dark:bg-slate-800 dark:text-slate-100">
-              {incomingCall.callType === "video" ? <Video size={20} /> : <Phone size={20} />}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-900 dark:text-slate-100">Incoming {incomingCall.callType} call</p>
-              <h3 className="mt-2 font-display text-2xl font-bold">{incomingCall.title || `${incomingCall.fromUserName} is calling`}</h3>
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-300">{incomingCall.fromUserName} wants to start a private {incomingCall.callType} call with you.</p>
-            </div>
-          </div>
-          <div className="mt-5 flex gap-3">
-            <button type="button" className="flex-1 rounded-full bg-emerald-600 px-5 py-3 font-semibold text-white" onClick={acceptCall}>Accept</button>
-            <button type="button" className="flex-1 rounded-full bg-rose-600 px-5 py-3 font-semibold text-white" onClick={declineCall}><PhoneOff className="mr-2 inline" size={18} /> Decline</button>
-          </div>
-        </div>
-      )}
+  if (incomingCall) {
+    return (
+      <CallCard eyebrow={`Incoming ${incomingCall.callType} call`} name={incomingCall.fromUserName} detail="wants to talk with you" callType={incomingCall.callType} pulse>
+        <button type="button" className="btn btn-secondary flex-1" onClick={decline}><PhoneOff size={16} /> Decline</button>
+        <button type="button" className="btn flex-1 bg-ok text-white hover:bg-ok/90" onClick={accept}><Phone size={16} /> Accept</button>
+      </CallCard>
+    );
+  }
 
-      {outgoingCall && (
-        <div className="fixed inset-x-4 top-20 z-40 mx-auto max-w-md rounded-[2rem] border border-white/70 bg-white/95 p-5 shadow-2xl backdrop-blur dark:border-white/10 dark:bg-slate-900/95">
-          <div className="flex items-start gap-4">
-            <div className="mt-1 rounded-2xl bg-violet-100 p-3 text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
-              {outgoingCall.callType === "video" ? <Video size={20} /> : <Phone size={20} />}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300">Outgoing {outgoingCall.callType} call</p>
-              <h3 className="mt-2 font-display text-2xl font-bold">{outgoingCall.title}</h3>
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-300">{outgoingCall.toUserName} is {outgoingCall.status === "accepted" ? "joining" : "ringing..."}</p>
-            </div>
-          </div>
-          <div className="mt-5 flex gap-3">
-            <div className="flex-1 rounded-full bg-slate-100 px-5 py-3 text-center text-sm font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-200">
-              {outgoingCall.status === "accepted" ? "Connecting..." : "Ringing..."}
-            </div>
-            <button type="button" className="rounded-full bg-rose-600 px-5 py-3 font-semibold text-white" onClick={cancelOutgoingCall}><PhoneOff className="mr-2 inline" size={18} /> Cancel</button>
-          </div>
-        </div>
-      )}
-    </>
-  );
+  if (outgoingCall) {
+    return (
+      <CallCard eyebrow={`${outgoingCall.callType} call`} name={outgoingCall.toUserName} detail={outgoingCall.status === "accepted" ? "Connecting…" : "Ringing…"} callType={outgoingCall.callType} pulse={outgoingCall.status !== "accepted"}>
+        <button type="button" className="btn btn-danger flex-1" onClick={cancelOutgoing}><PhoneOff size={16} /> Cancel</button>
+      </CallCard>
+    );
+  }
+
+  return null;
 }
