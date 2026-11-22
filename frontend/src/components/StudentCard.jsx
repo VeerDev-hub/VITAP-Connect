@@ -1,6 +1,20 @@
 import { memo, useState } from "react";
 import { Check, Clock3, Github, Instagram, Linkedin, Sparkles, UserPlus } from "lucide-react";
 import { socialUrl } from "../lib/format";
+import { SpotlightCard } from "./motion";
+
+const BANDS = [
+  "from-[#3358FF] to-[#7BDFF2]",
+  "from-[#7B5CFF] to-[#F4A6C6]",
+  "from-[#0EA47A] to-[#C4F234]",
+  "from-[#FF8A4C] to-[#FFD166]",
+  "from-[#1B2A6B] to-[#3358FF]"
+];
+function bandFor(name = "") {
+  let h = 0;
+  for (const c of name) h = (h * 33 + c.charCodeAt(0)) >>> 0;
+  return BANDS[h % BANDS.length];
+}
 import { Avatar, Badge } from "./ui";
 
 const STATUS = {
@@ -40,49 +54,55 @@ function StudentCard({ student, actionLabel = "Connect", onAction, secondaryActi
   const socials = SOCIALS.map(([key, Icon, label]) => [socialUrl(key, student[key]), Icon, label]).filter(([url]) => url);
 
   return (
-    <article className="panel flex flex-col p-5 transition-colors hover:border-line-strong">
-      <div className="flex items-start gap-3">
-        <Avatar name={student.name} src={student.avatarUrl} size="lg" online={online} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="truncate text-lg font-semibold leading-tight">{student.name}</h3>
-            {status && <Badge tone={status.tone} icon={status.icon} className="shrink-0">{status.label}</Badge>}
+    <SpotlightCard tilt={3} className="panel lift flex h-full flex-col">
+      {/* colour band picked from the name, so every card looks a bit different */}
+      <div className={`h-16 bg-gradient-to-r ${bandFor(student.name)}`}>
+        <div className="dot-grid h-full w-full opacity-40" />
+      </div>
+      <div className="flex flex-1 flex-col px-5 pb-5">
+        <div className="-mt-8 flex items-end justify-between gap-2">
+          <span className="rounded-full ring-4 ring-surface"><Avatar name={student.name} src={student.avatarUrl} size="lg" online={online} /></span>
+          {status && <Badge tone={status.tone} icon={status.icon} className="mb-1 shrink-0">{status.label}</Badge>}
+        </div>
+        <div className="mt-3 min-w-0">
+          <h3 className="truncate font-display text-[17px] leading-tight">{student.name}</h3>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
+            {student.regNumber && <span className="rounded-full bg-sunken px-2 py-0.5 font-mono text-[11px] font-semibold text-ink-2">{student.regNumber}</span>}
+            {meta && <span className="truncate">{meta}</span>}
+          </p>
+        </div>
+
+        {student.reason && (
+          <p className="mt-4 flex items-center gap-2 self-start rounded-full bg-pop px-3 py-1.5 text-xs font-extrabold text-pop-ink">
+            <Sparkles size={13} /> {student.reason}
+          </p>
+        )}
+
+        {student.bio && <p className="mt-3 line-clamp-2 text-sm text-ink-2">{student.bio}</p>}
+
+        {skills.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {skills.slice(0, 5).map((skill) => <span key={skill} className="tag">{skill}</span>)}
+            {skills.length > 5 && <span className="tag !bg-transparent ring-1 ring-dashed ring-line-strong">+{skills.length - 5}</span>}
           </div>
-          {student.regNumber && <p className="mt-0.5 font-mono text-[11px] text-ink-3">{student.regNumber}</p>}
-          {meta && <p className="mt-1 truncate text-sm text-ink-2">{meta}</p>}
+        )}
+
+        <div className="mt-auto flex items-center justify-between gap-2 pt-5">
+          <div className="-ml-2 flex">
+            {socials.map(([url, Icon, label]) => (
+              <a key={label} href={url} target="_blank" rel="noopener noreferrer" className="icon-btn h-9 w-9" title={label} aria-label={`${student.name} on ${label}`}>
+                <Icon size={16} />
+              </a>
+            ))}
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            {onDangerAction && <ActionButton className="btn-ghost text-bad hover:bg-bad-soft hover:text-bad" onClick={() => onDangerAction(student)}>{dangerActionLabel}</ActionButton>}
+            {onSecondaryAction && <ActionButton className="btn-secondary" onClick={() => onSecondaryAction(student)}>{secondaryActionLabel}</ActionButton>}
+            {canAct && <ActionButton className="btn-primary" onClick={() => onAction(student)}><UserPlus size={14} /> {actionLabel}</ActionButton>}
+          </div>
         </div>
       </div>
-
-      {student.reason && (
-        <p className="mt-4 flex items-center gap-2 rounded-md bg-accent-soft px-3 py-2 text-xs font-semibold text-accent">
-          <Sparkles size={13} /> {student.reason}
-        </p>
-      )}
-
-      {student.bio && <p className="mt-4 line-clamp-2 text-sm text-ink-2">{student.bio}</p>}
-
-      {skills.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {skills.slice(0, 5).map((skill) => <span key={skill} className="tag">{skill}</span>)}
-          {skills.length > 5 && <span className="tag border-dashed bg-transparent">+{skills.length - 5}</span>}
-        </div>
-      )}
-
-      <div className="mt-auto flex items-center justify-between gap-2 pt-5">
-        <div className="flex -ml-2">
-          {socials.map(([url, Icon, label]) => (
-            <a key={label} href={url} target="_blank" rel="noopener noreferrer" className="icon-btn h-8 w-8" title={label} aria-label={`${student.name} on ${label}`}>
-              <Icon size={15} />
-            </a>
-          ))}
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          {onDangerAction && <ActionButton className="btn-ghost text-bad hover:bg-bad-soft hover:text-bad" onClick={() => onDangerAction(student)}>{dangerActionLabel}</ActionButton>}
-          {onSecondaryAction && <ActionButton className="btn-secondary" onClick={() => onSecondaryAction(student)}>{secondaryActionLabel}</ActionButton>}
-          {canAct && <ActionButton className="btn-primary" onClick={() => onAction(student)}><UserPlus size={14} /> {actionLabel}</ActionButton>}
-        </div>
-      </div>
-    </article>
+    </SpotlightCard>
   );
 }
 

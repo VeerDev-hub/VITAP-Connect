@@ -82,7 +82,7 @@ function NewGroupDialog({ friends, onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-4" onClick={onClose}>
-      <form onSubmit={create} onClick={(e) => e.stopPropagation()} className="w-full max-w-md animate-fade-up rounded-t-xl border border-line bg-surface shadow-pop sm:rounded-xl">
+      <form onSubmit={create} onClick={(e) => e.stopPropagation()} className="w-full max-w-md animate-fade-up rounded-t-xl border border-line bg-surface shadow-float sm:rounded-xl">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-lg font-semibold">New group</h2>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Close"><X size={16} /></button>
@@ -566,7 +566,7 @@ export default function Chat() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-7.5rem)] overflow-hidden border-line bg-surface lg:h-dvh">
+    <div className="flex h-[calc(100dvh-10rem)] overflow-hidden border-line bg-surface sm:rounded-3xl sm:border lg:h-[calc(100dvh-6.75rem)]">
       {/* Sidebar */}
       <aside className={`w-full flex-col border-r border-line md:flex md:w-80 ${showList ? "flex" : "hidden"}`}>
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-4">
@@ -608,7 +608,7 @@ export default function Chat() {
                   <div className="relative" ref={menuRef}>
                     <button type="button" className="icon-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="More"><MoreVertical size={18} /></button>
                     {menuOpen && (
-                      <div className="absolute right-0 z-20 mt-2 w-44 animate-fade-up overflow-hidden rounded-md border border-line bg-surface shadow-pop">
+                      <div className="absolute right-0 z-20 mt-2 w-44 animate-fade-up overflow-hidden rounded-md border border-line bg-surface shadow-float">
                         <button type="button" onClick={blockActive} className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-bad hover:bg-bad-soft"><ShieldAlert size={15} /> Block user</button>
                       </div>
                     )}

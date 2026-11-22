@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Controller, useForm } from "react-hook-form";
 import { ArrowLeft, ArrowRight, MailCheck } from "lucide-react";
 import toast from "react-hot-toast";
+import { motion } from "motion/react";
 import AuthLayout from "../components/layout/AuthLayout";
 import { Field, OtpInput, PasswordInput, PasswordStrength, TagInput } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
@@ -25,9 +26,9 @@ const LOGIN_ASIDE = (
     <p className="eyebrow text-accent">Welcome back</p>
     <h2 className="mt-3 text-4xl font-semibold leading-[1.05]">Your teams, chats and requests are where you left them.</h2>
     <ul className="mt-8 space-y-3 text-sm text-ink-2">
-      <li className="flex gap-3"><span className="font-mono text-ink-3">01</span> Pick up conversations with your connections</li>
-      <li className="flex gap-3"><span className="font-mono text-ink-3">02</span> Review join requests on your projects</li>
-      <li className="flex gap-3"><span className="font-mono text-ink-3">03</span> Jump into a team call from any room</li>
+      <li className="flex items-center gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pop text-[11px] font-extrabold text-pop-ink">01</span> Pick up conversations with your connections</li>
+      <li className="flex items-center gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pop text-[11px] font-extrabold text-pop-ink">02</span> Review join requests on your projects</li>
+      <li className="flex items-center gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pop text-[11px] font-extrabold text-pop-ink">03</span> Jump into a team call from any room</li>
     </ul>
   </>
 );
@@ -35,7 +36,7 @@ const LOGIN_ASIDE = (
 const REGISTER_ASIDE = (
   <>
     <p className="eyebrow text-accent">Students only</p>
-    <h2 className="mt-3 text-4xl font-semibold leading-[1.05]">Built for people with a <span className="font-mono text-[0.8em]">@vitapstudent</span> address.</h2>
+    <h2 className="mt-3 text-4xl font-semibold leading-[1.05]">Built for people with a <span className="marker">@vitapstudent</span> address.</h2>
     <p className="mt-4 text-ink-2">Every account is verified with a one-time code sent to your college inbox — no outsiders, no fake profiles.</p>
   </>
 );
@@ -58,7 +59,7 @@ function Login() {
 
   return (
     <AuthLayout aside={LOGIN_ASIDE}>
-      <h1 className="text-3xl font-semibold">Log in</h1>
+      <h1 className="text-[1.75rem] leading-tight">Log in</h1>
       <p className="mt-2 text-ink-2">Use the college email you registered with.</p>
       <form className="mt-8 space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
         <Field label="College email" htmlFor="login-email" error={errors.email?.message}>
@@ -84,16 +85,17 @@ function Login() {
 
 function StepHeader({ step }) {
   return (
-    <div className="mb-8 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.14em]">
-      {["Verify email", "Your profile"].map((label, i) => (
-        <span key={label} className={`flex items-center gap-2 ${step === i + 1 ? "text-ink" : "text-ink-3"}`}>
-          <span className={`flex h-5 w-5 items-center justify-center rounded text-[10px] ${step > i + 1 ? "bg-ok text-white" : step === i + 1 ? "bg-ink text-bg" : "border border-line-strong"}`}>
-            {step > i + 1 ? "✓" : i + 1}
+    <div className="mb-8">
+      <div className="flex items-center justify-between text-xs font-bold">
+        {["Verify email", "Your profile"].map((label, i) => (
+          <span key={label} className={step >= i + 1 ? "text-ink" : "text-ink-3"}>
+            <span className="mr-1.5 text-accent">{i + 1}.</span>{label}
           </span>
-          {label}
-          {i === 0 && <span className="mx-1 h-px w-6 bg-line-strong" />}
-        </span>
-      ))}
+        ))}
+      </div>
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sunken">
+        <motion.div className="h-full rounded-full bg-gradient-to-r from-accent to-pop" initial={false} animate={{ width: step === 1 ? "50%" : "100%" }} transition={{ type: "spring", stiffness: 120, damping: 20 }} />
+      </div>
     </div>
   );
 }
@@ -150,7 +152,7 @@ function Register() {
 
       {step === 1 && (
         <>
-          <h1 className="text-3xl font-semibold">Create your account</h1>
+          <h1 className="text-[1.75rem] leading-tight">Create your account</h1>
           <p className="mt-2 text-ink-2">We&apos;ll email a 6-digit code to confirm you&apos;re a VIT-AP student.</p>
           <form className="mt-8 space-y-4" onSubmit={emailForm.handleSubmit(sendOtp)} noValidate>
             <Field label="College email" htmlFor="reg-email" error={emailForm.formState.errors.email?.message}>

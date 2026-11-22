@@ -14,9 +14,9 @@ const ASIDE = (
     <p className="eyebrow text-accent">Account recovery</p>
     <h2 className="mt-3 text-4xl font-semibold leading-[1.05]">Locked out? It takes about a minute.</h2>
     <ul className="mt-8 space-y-3 text-sm text-ink-2">
-      <li className="flex gap-3"><span className="font-mono text-ink-3">01</span> Enter your college email</li>
-      <li className="flex gap-3"><span className="font-mono text-ink-3">02</span> Type the 6-digit code we send you</li>
-      <li className="flex gap-3"><span className="font-mono text-ink-3">03</span> Choose a new password</li>
+      <li className="flex items-center gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pop text-[11px] font-extrabold text-pop-ink">01</span> Enter your college email</li>
+      <li className="flex items-center gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pop text-[11px] font-extrabold text-pop-ink">02</span> Type the 6-digit code we send you</li>
+      <li className="flex items-center gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-pop text-[11px] font-extrabold text-pop-ink">03</span> Choose a new password</li>
     </ul>
   </>
 );
@@ -79,7 +79,7 @@ export default function ForgotPassword() {
     <AuthLayout aside={ASIDE}>
       {step === 1 ? (
         <>
-          <h1 className="text-3xl font-semibold">Reset your password</h1>
+          <h1 className="text-[1.75rem] leading-tight">Reset your password</h1>
           <p className="mt-2 text-ink-2">We&apos;ll send a one-time code to your college email.</p>
           <form className="mt-8 space-y-4" onSubmit={handleSubmit(sendOtp)} noValidate>
             <Field label="College email" htmlFor="fp-email" error={errors.email?.message}>
@@ -92,7 +92,7 @@ export default function ForgotPassword() {
         </>
       ) : (
         <>
-          <h1 className="text-3xl font-semibold">Check your inbox</h1>
+          <h1 className="text-[1.75rem] leading-tight">Check your inbox</h1>
           <p className="mt-2 text-ink-2">Enter the code we sent to <span className="font-semibold text-ink">{email}</span>.</p>
           <form className="mt-8 space-y-4" onSubmit={verify}>
             <Field label="Verification code" error={otpError}>

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, CloudSun, FolderKanban, Sparkles, X } from "lucide-react";
+import { ArrowRight, CloudSun, FolderKanban, Sparkles, X, Clock3, GraduationCap, Plus, Search, UserRound, Users } from "lucide-react";
 import toast from "react-hot-toast";
+import { motion } from "motion/react";
+import { SplitText, Stagger } from "../components/motion";
 import StudentCard from "../components/StudentCard";
 import { Avatar, EmptyState, SectionTitle, Skeleton, Stat } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
@@ -34,17 +36,13 @@ function TodayStrip() {
   }, []);
 
   return (
-    <p className="eyebrow flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span>{now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</span>
-      <span className="text-line-strong">/</span>
-      <span>{now.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })} IST</span>
+    <div className="flex flex-wrap gap-2 text-xs font-bold text-ink-2">
+      <span className="rounded-full border border-line bg-surface/60 px-3 py-1.5">{now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</span>
+      <span className="rounded-full border border-line bg-surface/60 px-3 py-1.5 tabular-nums">{now.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })} IST</span>
       {temp !== null && (
-        <>
-          <span className="text-line-strong">/</span>
-          <span className="inline-flex items-center gap-1"><CloudSun size={13} /> {temp}°C Amaravati</span>
-        </>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-pop px-3 py-1.5 text-pop-ink"><CloudSun size={13} /> {temp}°C Amaravati</span>
       )}
-    </p>
+    </div>
   );
 }
 
@@ -93,26 +91,46 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-10">
-      <header className="border-b border-line pb-6">
-        <TodayStrip />
-        <h1 className="mt-3 text-3xl font-semibold sm:text-4xl">{greeting()}, {firstName(user?.name)}.</h1>
-        <p className="mt-2 text-ink-2">
-          {requests.length > 0
-            ? <>You have <Link to="/connections" className="link">{requests.length} connection request{requests.length > 1 ? "s" : ""}</Link> waiting.</>
-            : "Here's who you might want to work with this week."}
-        </p>
-      </header>
+      <motion.header
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        className="dark relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#121a3d] via-[#0b1028] to-[#070a16] px-6 py-8 text-ink ring-1 ring-white/10 sm:px-10 sm:py-10"
+      >
+        <div className="dot-grid absolute inset-0 opacity-50" />
+        <div className="absolute -right-10 -top-20 h-64 w-64 animate-float rounded-full bg-accent/40 blur-3xl" />
+        <div className="absolute -bottom-24 right-40 h-56 w-56 rounded-full bg-pop/20 blur-3xl" />
+        <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <TodayStrip />
+            <h1 className="mt-4 text-3xl leading-[1.1] sm:text-[2.7rem]">
+              <SplitText text={`${greeting()}, ${firstName(user?.name)}.`} />
+            </h1>
+            <p className="mt-3 max-w-lg text-ink-2">
+              {requests.length > 0
+                ? <>You have <Link to="/connections" className="font-bold text-pop underline decoration-pop/40 underline-offset-4">{requests.length} connection request{requests.length > 1 ? "s" : ""}</Link> waiting.</>
+                : "Here's who you might want to work with this week."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/discover" className="btn btn-accent"><Search size={16} /> Find teammates</Link>
+            <Link to="/collaborations" className="btn border border-line text-ink hover:border-pop/60 hover:text-pop"><Plus size={16} /> New project</Link>
+          </div>
+        </div>
+      </motion.header>
 
       {/* Stats */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Profile" value={`${completion}%`} tone={completion === 100 ? "ok" : "accent"}>
-          <div className="mt-3 h-1 overflow-hidden rounded-full bg-sunken"><div className="h-full bg-accent" style={{ width: `${completion}%` }} /></div>
-          {completion < 100 && <Link to="/profile" className="mt-2 inline-block text-xs font-semibold text-ink-2 hover:text-ink">Complete it →</Link>}
+      <Stagger className="grid grid-cols-2 gap-3 lg:grid-cols-4" delay={0.15}>
+        <Stat label="Profile" icon={UserRound} value={`${completion}%`} tone={completion === 100 ? "ok" : "accent"}>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-sunken">
+            <motion.div className="h-full rounded-full bg-gradient-to-r from-accent to-pop" initial={{ width: 0 }} animate={{ width: `${completion}%` }} transition={{ duration: 1.2, delay: 0.4, ease: [0.22, 1, 0.36, 1] }} />
+          </div>
+          {completion < 100 && <Link to="/profile" className="mt-2 inline-block text-xs font-bold text-accent">Complete it →</Link>}
         </Stat>
-        <Stat label="Connections" value={data ? data.connections.accepted.length : "–"} />
-        <Stat label="Pending" value={data ? requests.length : "–"} tone={requests.length ? "warn" : "default"} />
-        <Stat label="On campus" value={data ? data.analytics?.students ?? 0 : "–"} />
-      </section>
+        <Stat label="Connections" icon={Users} value={data ? data.connections.accepted.length : "–"} />
+        <Stat label="Pending" icon={Clock3} value={data ? requests.length : "–"} tone={requests.length ? "warn" : "default"} />
+        <Stat label="On campus" icon={GraduationCap} value={data ? data.analytics?.students ?? 0 : "–"} />
+      </Stagger>
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
         {/* Recommendations */}
@@ -123,15 +141,15 @@ export default function Dashboard() {
             action={<Link to="/discover" className="btn btn-ghost btn-sm">Browse all <ArrowRight size={14} /></Link>}
           />
           {!data ? (
-            <div className="grid gap-3 sm:grid-cols-2">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-52" />)}</div>
+            <div className="grid gap-4 sm:grid-cols-2">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-60" />)}</div>
           ) : data.recommendations.length === 0 ? (
             <EmptyState icon={Sparkles} title="No suggestions yet" action={<Link to="/profile" className="btn btn-secondary btn-sm">Add skills</Link>}>
               Add a few skills and interests to your profile so we can match you.
             </EmptyState>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <Stagger className="grid gap-4 sm:grid-cols-2" gap={0.07}>
               {data.recommendations.map((student) => <StudentCard key={student.id} student={student} onAction={request} />)}
-            </div>
+            </Stagger>
           )}
         </section>
 
@@ -139,9 +157,9 @@ export default function Dashboard() {
           {requests.length > 0 && (
             <section>
               <SectionTitle title="Requests" count={requests.length} action={<Link to="/connections" className="btn btn-ghost btn-sm">Review</Link>} />
-              <div className="panel divide-y divide-line">
+              <div className="panel overflow-hidden p-2">
                 {requests.slice(0, 4).map((s) => (
-                  <Link key={s.id} to="/connections" className="flex items-center gap-3 px-4 py-3 hover:bg-sunken">
+                  <Link key={s.id} to="/connections" className="flex items-center gap-3 rounded-2xl px-3 py-2.5 transition hover:translate-x-1 hover:bg-sunken">
                     <Avatar name={s.name} src={s.avatarUrl} size="sm" />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold">{s.name}</p>
@@ -158,15 +176,18 @@ export default function Dashboard() {
             {!data ? (
               <Skeleton className="h-24" />
             ) : data.projects.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-line-strong p-4 text-sm text-ink-2">
+              <p className="rounded-3xl border border-dashed border-line-strong p-5 text-sm text-ink-2">
                 No skill matches right now. <Link to="/collaborations" className="link">Start a project</Link>
               </p>
             ) : (
-              <div className="panel divide-y divide-line">
+              <div className="space-y-2">
                 {data.projects.map((p) => (
-                  <Link key={p.id} to="/collaborations" className="block px-4 py-3 hover:bg-sunken">
-                    <p className="flex items-center gap-2 text-sm font-semibold"><FolderKanban size={14} className="text-ink-3" /> {p.title}</p>
-                    <p className="mt-1 text-xs text-ink-2">Needs {(p.matchingSkills || []).join(", ")}</p>
+                  <Link key={p.id} to="/collaborations" className="panel lift flex items-center gap-3 p-3.5">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-soft text-accent"><FolderKanban size={17} /></span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold">{p.title}</span>
+                      <span className="mt-0.5 block truncate text-xs text-ink-2">Needs <b className="text-accent">{(p.matchingSkills || []).join(", ")}</b></span>
+                    </span>
                   </Link>
                 ))}
               </div>
@@ -183,12 +204,12 @@ export default function Dashboard() {
             ) : data.notifications.length === 0 ? (
               <p className="text-sm text-ink-3">Nothing new.</p>
             ) : (
-              <ol className="relative space-y-4 border-l border-line pl-4">
+              <ol className="relative space-y-4 border-l-2 border-line pl-4">
                 {data.notifications.map((n) => (
                   <li key={n.id} className="group relative">
-                    <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full border-2 border-bg bg-accent" />
+                    <span className="absolute -left-[22px] top-1 h-3 w-3 rounded-full border-[3px] border-bg bg-accent" />
                     <p className="pr-6 text-sm">{n.message}</p>
-                    <p className="font-mono text-[11px] text-ink-3">{timeAgo(n.createdAt)}</p>
+                    <p className="text-xs text-ink-3">{timeAgo(n.createdAt)} ago</p>
                     <button type="button" onClick={() => deleteNotification(n.id)} className="absolute right-0 top-0 text-ink-3 opacity-0 hover:text-bad group-hover:opacity-100" aria-label="Dismiss">
                       <X size={14} />
                     </button>

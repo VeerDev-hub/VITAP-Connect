@@ -1,13 +1,13 @@
 import { useState } from "react";
 
-// Deterministic warm tones for initials avatars (no external avatar service).
+// Deterministic bright tones for initials avatars (no external avatar service).
 const TONES = [
-  "bg-[#E9DFCF] text-[#5B4A2E]",
-  "bg-[#DCE6DA] text-[#2F5233]",
-  "bg-[#F3D9CC] text-[#7A3417]",
-  "bg-[#D9E2EC] text-[#2C4560]",
-  "bg-[#E8DDE8] text-[#5B3A5B]",
-  "bg-[#EDE6C8] text-[#5E5418]"
+  "bg-[#FFD166] text-[#4a3500]",
+  "bg-[#7BDFF2] text-[#06343d]",
+  "bg-[#F4A6C6] text-[#4b0f29]",
+  "bg-[#B8F2A0] text-[#123b05]",
+  "bg-[#C3B8FF] text-[#22105c]",
+  "bg-[#FFB38A] text-[#4d1d00]"
 ];
 
 function toneFor(name = "") {
@@ -42,18 +42,18 @@ export default function Avatar({ name, src, size = "md", online, className = "" 
           alt={name}
           loading="lazy"
           onError={() => setFailed(true)}
-          className={`${SIZES[size]} rounded-md border border-line object-cover`}
+          className={`${SIZES[size]} rounded-full object-cover ring-1 ring-line`}
         />
       ) : (
-        <span className={`${SIZES[size]} ${toneFor(name)} inline-flex items-center justify-center rounded-md font-display font-semibold`} aria-label={name}>
+        <span className={`${SIZES[size]} ${toneFor(name)} inline-flex items-center justify-center rounded-full font-body font-extrabold`} aria-label={name}>
           {initials(name)}
         </span>
       )}
       {online !== undefined && (
-        <span
-          className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface ${online ? "bg-ok" : "bg-line-strong"}`}
-          title={online ? "Online" : "Offline"}
-        />
+        <span className="absolute bottom-0 right-0 flex h-3.5 w-3.5" title={online ? "Online" : "Offline"}>
+          {online && <span className="absolute inline-flex h-full w-full animate-ping2 rounded-full bg-ok/60" />}
+          <span className={`relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-surface ${online ? "bg-ok" : "bg-line-strong"}`} />
+        </span>
       )}
     </span>
   );
