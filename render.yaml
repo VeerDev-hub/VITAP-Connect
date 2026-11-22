@@ -1,0 +1,60 @@
+# Render Blueprint for VITAP Connect.
+# Render runs the API only; the website is on Vercel (see DEPLOY_RENDER_VERCEL.txt).
+# Render dashboard → New → Blueprint → pick this repo.
+#
+# Values marked `sync: false` are secrets you enter in the dashboard. When
+# updating an existing deployment, re-use the SAME JWT_SECRET and
+# CHAT_ENCRYPTION_KEY as before — a new CHAT_ENCRYPTION_KEY makes every
+# stored message unreadable, and a new JWT_SECRET logs everyone out.
+
+services:
+  # ── API (Express + Socket.io) ──────────────────────────────────────────────
+  - type: web
+    name: vitap-connect-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: TRUST_PROXY
+        value: "1"
+      # Public URL of the static site below, e.g. https://vitap-connect.onrender.com
+      # (comma-separate extra origins such as a custom domain).
+      - key: CLIENT_URL
+        sync: false
+      # Public URL of this API, used to build avatar links.
+      - key: API_BASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CHAT_ENCRYPTION_KEY
+        sync: false
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USERNAME
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      # Email: OTPs go through the Apps Script webhook (Render blocks SMTP on free plans).
+      - key: GOOGLE_MAIL_WEBHOOK
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      # Optional: web push + TURN for calls across strict networks.
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: METERED_TURN_API
+        sync: false

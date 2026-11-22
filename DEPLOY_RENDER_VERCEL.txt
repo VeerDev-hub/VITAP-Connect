@@ -1,0 +1,263 @@
+VITAP CONNECT: DEPLOYING ON RENDER (API) + VERCEL (WEBSITE)
+==========================================================
+
+This guide deploys the updated VITAP Connect (new backend structure + new
+design) on top of your EXISTING live data. Every student account, connection,
+project and message stays. Nobody has to sign up again.
+
+  Browser ──> https://your-site.vercel.app        Vercel   (the React website)
+     │
+     └────> https://your-api.onrender.com         Render   (API + live chat/calls)
+                    │
+                    ├── Neo4j AuraDB    (your existing students, projects…)
+                    └── MongoDB Atlas   (your existing messages, groups, calls…)
+
+The key idea: the new code uses the SAME databases and the SAME secrets as the
+current live site, so all existing data simply keeps working.
+
+
+-------------------------------------------------------------------------------
+BEFORE YOU START
+-------------------------------------------------------------------------------
+
+1. Commit and push this branch (refactor/backend-structure) to GitHub, and
+   merge it into the branch Render deploys from (usually master/main).
+   Render and Vercel deploy from GitHub.
+
+2. Open Render -> your current VITAP API service -> Environment, and copy all
+   the values somewhere safe (a password manager). You will REUSE them:
+       JWT_SECRET            keep it: changing it logs everyone out
+       CHAT_ENCRYPTION_KEY   keep it: changing it makes every old message
+                             unreadable (if it isn't set, don't add one now;
+                             the app then uses JWT_SECRET, as before)
+       NEO4J_URI / NEO4J_USERNAME / NEO4J_PASSWORD
+       MONGODB_URI
+       GOOGLE_MAIL_WEBHOOK, EMAIL_USER, EMAIL_PASS (if set)
+       VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY (if set; keep them so existing push
+                             notifications keep working)
+       METERED_TURN_API (if set)
+       CLIENT_URL, API_BASE_URL
+
+3. Back up the data (5 minutes, worth it):
+     MongoDB: Atlas -> your cluster -> "..." -> Download/Export, or with the
+              database tools on your PC:
+                mongodump --uri "YOUR_MONGODB_URI" --out vitap-backup
+     Neo4j:   Aura console -> your instance -> "..." -> Export / Snapshot (if
+              your tier offers it). On Aura Free, make a copy with Neo4j
+              Desktop, or at least export the Students via the Query tab.
+
+About cost:
+  Render FREE plan:
+    - The API sleeps after 15 minutes without visitors; the next visitor
+      waits about a minute and live chat disconnects while it sleeps.
+    - There is no permanent disk, so uploaded profile photos are DELETED on
+      every restart or deploy.
+  Render STARTER (about $7/month) + 1 GB disk (about $0.25/month): always on,
+  and photos are kept. Recommended once real students use it daily.
+  Vercel's free Hobby plan is enough for the website.
+
+
+-------------------------------------------------------------------------------
+STEP 1: REMOVE THE OLD DEMO STUDENTS FROM THE LIVE DATABASE (if any)
+-------------------------------------------------------------------------------
+
+The project used to ship a demo seed with fake students:
+    aarav.menon, diya.sharma, kabir.reddy, meera.nair, rohan.iyer
+    @vitapstudent.ac.in, plus demo.23bce0001@vitapstudent.ac.in
+and projects like "VITAP Skill Graph" and "HackFest AI Mentor". If that seed
+was ever run against the live database, real students see those fake people
+in suggestions. The demo seeds are now deleted from the code, and this script
+removes their data. It only deletes those exact accounts and what they
+CREATED. Real students are never touched, though their connections to the
+fake accounts disappear.
+
+From your PC:
+
+   cd backend
+   npm ci
+
+   Preview first (deletes nothing; prints exactly what it found):
+     npm run remove-demo
+
+   Check the first line it prints:  "Database: neo4j+s://…"
+   It must be your LIVE Aura address. The script reads backend/.env. If your
+   .env points somewhere else, create backend/.env.local with the live
+   NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD and MONGODB_URI and run:
+     Git Bash:    ENV_FILE=.env.local npm run remove-demo
+     PowerShell:  $env:ENV_FILE=".env.local"; npm run remove-demo
+
+   If the list looks right, delete:
+     npm run remove-demo -- --apply
+   (with ENV_FILE in front, as above, if you used .env.local)
+
+   "Nothing to remove" means the live database never had demo data. Good.
+
+   If you created backend/.env.local, delete it afterwards. It holds live
+   passwords.
+
+
+-------------------------------------------------------------------------------
+STEP 2: UPDATE THE API ON RENDER
+-------------------------------------------------------------------------------
+
+Update your EXISTING Render service rather than creating a new one. That way
+its address stays the same.
+
+1. Render -> your VITAP API service -> Settings:
+     Root Directory      backend
+     Build Command       npm ci --omit=dev
+     Start Command       node src/server.js
+     Health Check Path   /health
+     Region              keep as is
+
+2. Environment -> keep every existing variable from "Before you start", and
+   ADD or CHECK:
+     NODE_ENV       production
+     NODE_VERSION   22
+     TRUST_PROXY    1      <- important. Without it, the login rate limiter sees
+                              every student as the same person, so 10 logins
+                              anywhere lock EVERYONE out for 15 minutes.
+
+3. Save, then Manual Deploy -> "Deploy latest commit". It takes 2-4 minutes.
+
+4. Test: open  https://YOUR-API.onrender.com/health  in a browser.
+   Expected:  {"status":"ok","service":"vitap-connect-api"}
+   If not: Logs tab. The most common cause is a wrong Root Directory or Start
+   Command.
+
+(Starting fresh instead? render.yaml in this repo describes the API service:
+Render -> New -> Blueprint -> pick the repo, then enter the same secret values.
+A new service gets a NEW address, so use that address everywhere below.)
+
+Recommended for real use: Settings -> Instance Type -> Starter, then
+Disks -> Add disk:
+     Mount Path  /opt/render/project/src/backend/uploads
+     Size        1 GB
+This keeps profile photos across restarts.
+
+
+-------------------------------------------------------------------------------
+STEP 3: DEPLOY THE WEBSITE ON VERCEL
+-------------------------------------------------------------------------------
+
+1. vercel.com -> Add New -> Project -> import your VITAP-Connect repo.
+2. Configure:
+     Root Directory     frontend          <- click "Edit" and choose it
+     Framework Preset   Vite (auto-detected)
+     Build settings     leave the defaults (frontend/vercel.json sets them)
+     Environment Variables:
+        VITE_API_URL = https://YOUR-API.onrender.com     (no trailing slash)
+3. Deploy. You get an address like  https://vitap-connect-xyz.vercel.app
+
+If you change VITE_API_URL later, REDEPLOY on Vercel (Deployments -> ... ->
+Redeploy). The address is built into the site.
+
+
+-------------------------------------------------------------------------------
+STEP 4: CONNECT THE TWO
+-------------------------------------------------------------------------------
+
+The API only accepts requests from websites listed in CLIENT_URL.
+
+1. Render -> API service -> Environment -> CLIENT_URL = your Vercel address,
+   exactly as it appears in the browser (https, no trailing slash).
+   While you switch over, you can keep the old website address too,
+   separated with a comma:
+     https://vitap-connect-xyz.vercel.app,https://your-old-frontend-address
+2. Save. Render redeploys automatically (about 1 minute).
+
+Vercel "preview" builds (other branches) have different addresses, and the API
+refuses them unless you add them to CLIENT_URL. Use the production address.
+
+
+-------------------------------------------------------------------------------
+STEP 5: OWN DOMAIN (strongly recommended: fixes iPhone logins)
+-------------------------------------------------------------------------------
+
+With *.vercel.app and *.onrender.com, the website and API count as different
+sites. Safari (every iPhone), Brave and some privacy settings block the login
+cookie between different sites, so students log in and get logged straight
+back out. Chrome and Edge on Android and desktop work.
+
+The fix is one domain (about $10/year: Namecheap, Cloudflare, GoDaddy…),
+for example vitapconnect.in:
+
+  1. Vercel -> Project -> Settings -> Domains -> add  vitapconnect.in  (and
+     www). Add the DNS records Vercel shows at your domain registrar.
+  2. Render -> API service -> Settings -> Custom Domains -> add
+     api.vitapconnect.in. Add the CNAME record Render shows.
+     HTTPS is automatic on both (can take up to an hour).
+  3. Update, then redeploy both:
+       Render:  CLIENT_URL   = https://vitapconnect.in,https://www.vitapconnect.in
+                API_BASE_URL = https://api.vitapconnect.in
+       Vercel:  VITE_API_URL = https://api.vitapconnect.in   -> Redeploy
+
+
+-------------------------------------------------------------------------------
+STEP 6: TEST BEFORE TELLING EVERYONE
+-------------------------------------------------------------------------------
+
+Use a normal window and a private window, logged in as two different students:
+
+  [ ] The site opens with the new design.
+  [ ] An EXISTING student logs in with their usual email and password. Their
+      connections, projects and old messages are all there, and old messages
+      are readable.
+  [ ] No Aarav/Diya/Kabir/Meera/Rohan in suggestions (step 1 worked).
+  [ ] A new student can register: the 6-digit code arrives at their
+      @vitapstudent.ac.in inbox (check spam).
+  [ ] Messages between the two windows arrive instantly, with read ticks.
+  [ ] Group chats open (Messages -> Groups) and "New group" works.
+  [ ] Voice and video calls connect, with sound.
+  [ ] Upload a profile photo.
+  [ ] On an iPhone: log in and refresh. You stay logged in (needs step 5).
+  [ ] Admin login -> /admin works.
+
+Everyone is logged out once after the switch only if you changed JWT_SECRET.
+If you kept it, sessions continue.
+
+
+-------------------------------------------------------------------------------
+AFTER THE SWITCH
+-------------------------------------------------------------------------------
+
+  * If the old website was hosted somewhere else (Netlify, Render static
+    site…), point people to the new address, or replace the old site with a
+    redirect. Then remove the old address from CLIENT_URL.
+  * Future updates: push to GitHub. Render and Vercel redeploy automatically.
+  * Roll back a bad release:
+      Vercel: Deployments -> previous one -> "Promote to Production".
+      Render: Events -> previous deploy -> "Rollback".
+
+
+-------------------------------------------------------------------------------
+CALLS ON STRICT NETWORKS
+-------------------------------------------------------------------------------
+
+Calls connect browser to browser. College Wi-Fi and many mobile networks block
+that unless a TURN relay exists, and then calls ring but never connect. If
+METERED_TURN_API isn't set yet: create a free app at https://www.metered.ca,
+copy its "credentials API URL", and add it as METERED_TURN_API on Render.
+(TURN_SETUP.md has more options.)
+
+
+-------------------------------------------------------------------------------
+TROUBLESHOOTING
+-------------------------------------------------------------------------------
+
+  "Network Error", or "CORS" in the browser console
+      -> CLIENT_URL doesn't EXACTLY match the address in the browser bar
+         (https, no trailing slash, www vs no www).
+  Logged out right after logging in (mostly iPhone/Safari)
+      -> Cross-site cookie blocked. Do step 5.
+  "Too many attempts. Please try again in 15 minutes" for everyone
+      -> TRUST_PROXY=1 is missing on Render.
+  Old messages show up empty
+      -> CHAT_ENCRYPTION_KEY (or JWT_SECRET, if you never had a chat key)
+         differs from what the old site used. Put the old value back.
+  No verification code arrives
+      -> GOOGLE_MAIL_WEBHOOK missing or wrong. Check Render -> Logs.
+  First visit takes ~1 minute, and chat drops after idle
+      -> Free plan sleeping. Upgrade to Starter.
+  Profile photos disappear
+      -> No disk. Starter plan + disk (step 2).

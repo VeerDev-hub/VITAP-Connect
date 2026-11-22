@@ -1,120 +1,81 @@
-# 🚀 VITAP Connect
-### The Ultimate Campus Collaboration Hub for VIT-AP University
+# VITAP Connect
 
-[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Neo4j](https://img.shields.io/badge/Neo4j-008CC1?style=for-the-badge&logo=neo4j&logoColor=white)](https://neo4j.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+A collaboration network for VIT-AP University students. Sign up with an `@vitapstudent.ac.in` email, list your skills, and find teammates. Then run projects, chat, and call from one place.
 
----
+- **Discover** students by name, registration number, skill, department or year.
+- **Recommendations** ranked by a Neo4j graph query: shared skills ×3, shared interests ×2, same department +2, mutual connections +1, same year +1. Each suggestion shows the reason it was made.
+- **Collaborations**: post a project or hackathon team, list the skills you need, and accept join requests. Every project gets a team channel and a call room.
+- **Messages**: direct chats, group chats and project rooms over Socket.io, with typing indicators and read receipts. Messages are encrypted at rest with AES-256-GCM.
+- **Calls**: WebRTC voice and video with screen sharing, plus call history.
+- **Notifications**: in-app, plus Web Push and email when you're offline.
+- **Admin**: block or unblock students, remove projects, and read feedback.
 
-## 🌟 Overview
+## Stack
 
-**VITAP Connect** is a next-generation social networking and collaboration platform specifically tailored for VIT-AP students. It moves beyond traditional texting by using a **Neo4j-powered Graph Relationship Model** to visually map connections, shared interests, and skill overlaps, making it effortless to find the perfect teammate for your next hackathon or research project.
+| Layer | Tech |
+| --- | --- |
+| Frontend | React 19, Vite, Tailwind CSS, React Router, react-hook-form, Socket.io client |
+| Backend | Node.js, Express, Socket.io, web-push, nodemailer |
+| Data | Neo4j (people, skills, projects, relationships) and MongoDB (messages, calls, feedback, push subscriptions) |
+| Auth | Email OTP sign-up, JWT in an httpOnly cookie, one active session per account |
 
----
+## Project layout
 
-## ✨ Key Features
-
-### 🧩 Smart Matching Engine (Neo4j)
-- Visualize your campus network through an interactive **Graph Showcase**.
-- Get personalized collaborator recommendations based on skill sets, department, and academic goals.
-
-### 💬 Military-Grade Secure Chat
-- **Secure Messaging**: Peer-to-peer and group messaging powered by **Socket.io**.
-- **Message Prioritization**: Active conversations and new messages are automatically sorted to the top of your sidebar.
-- **Privacy First**: Built with session-based authentication to keep your conversations private between you and your connections.
-
----
-
-## 🔐 Advanced Encryption (AES-256-GCM)
-
-We take student privacy seriously. All chat messages in **VITAP Connect** are secured using a robust encryption layer before they are stored in the database.
-
-### How it Works:
-1.  **AES-256-GCM Algorithm**: We use the Advanced Encryption Standard (AES) with a 256-bit key in **Galois/Counter Mode (GCM)**. This provides both confidentiality and **integrity** (ensuring the message hasn't been tampered with).
-2.  **Unique IV & AuthTag**: Every single message is encrypted with a unique **Initialization Vector (IV)**. A dedicated **Authentication Tag** is generated to verify the authenticity of the message during decryption.
-3.  **Key Derivation**: Secure keys are managed server-side to ensure that even if a database snapshot is leaked, the actual message contents remain unreadable without the master encryption key.
-
-### 🕵️‍♂️ Technical Transparency
-Students are encouraged to review our security implementation:
-- **Encryption Logic**: [server.js L213](https://github.com/VeerDev-hub/VITAP-Connect/blob/master/backend/src/server.js#L213)
-- **Decryption Logic**: [server.js L220](https://github.com/VeerDev-hub/VITAP-Connect/blob/master/backend/src/server.js#L220)
-
----
-
-## 📅 Dashboard Widgets (New!)
-
-Stay organized and campus-ready with our premium dashboard widgets:
-- **📍 Live Weather Hub**: Real-time temperature and conditions for **Amaravati/Vijayawada** (University Location).
-- **⏰ Smart Clock**: Precise local IST time with elegant glassmorphic visuals.
-- **📊 Profile Strength**: Detailed analytics on your profile completeness.
-
----
-
-## 🛠️ Technology Stack
-
-| Layer | Technology |
-| :--- | :--- |
-| **Frontend** | React, Tailwind CSS, Framer Motion, Lucide React |
-| **Backend** | Node.js, Express, Socket.io, Web Push API |
-| **Databases** | Neo4j (Graph), MongoDB (Messages), Redis (Cache ready) |
-| **Auth** | JWT (JSON Web Tokens) with Cookie-based persistence |
-
----
-
-## 🚀 Getting Started
-
-### 1. Prerequisites
-- Node.js (v18+)
-- Neo4j AuraDB (or local)
-- MongoDB Atlas (or local)
-
-### 2. Installation
-```bash
-# Clone the repository
-git clone https://github.com/VeerDev-hub/VITAP-Connect.git
-
-# Setup Backend
-cd backend
-npm install
-# Create .env file with your credentials
-
-# Setup Frontend
-cd ../frontend
-npm install
+```
+backend/
+  src/
+    app.js            Express app (middleware + routes)
+    server.js         HTTP server + Socket.io bootstrap
+    config/env.js     All environment configuration
+    db/               Neo4j driver, MongoDB connection
+    models/           Mongoose models
+    middleware/       auth, rate limits, origin check, uploads, errors
+    services/         mail, push, encryption, students, calls, presence
+    controllers/      route handlers
+    routes/           Express routers
+    socket/           realtime handlers (direct, group, project, calls)
+  scripts/            seedAdmin, seedDemoData, seedDemoAccount
+frontend/
+  src/
+    components/ui/    design-system primitives (Avatar, TagInput, OtpInput…)
+    components/layout AppLayout (sidebar + mobile tabs), PublicLayout, AuthLayout
+    pages/            one file per route
+docker-compose.yml    full offline stack
+render.yaml           Render Blueprint (API + static site)
 ```
 
-### 3. Run Locally
-```bash
-# Backend
-cd backend
-node src/server.js
+## Run locally with Docker (recommended)
 
-# Frontend
-cd frontend
-npm run dev
+Needs Docker Desktop. Nothing else is required, and the stack runs fully offline.
+
+```bash
+npm run docker:up     # builds and starts Neo4j, MongoDB, Mailpit, API and frontend
+npm run docker:seed   # first run only: creates the admin account
 ```
 
----
+| | |
+| --- | --- |
+| App | http://localhost:5173 |
+| API | http://localhost:5000/health |
+| Mailpit (OTP emails land here) | http://localhost:8025 |
+| Neo4j Browser | http://localhost:7474 (`neo4j` / `vitap-local-dev`) |
 
-## 🔒 Security First
-- All sensitive student data is hashed using `bcryptjs`.
-- CSRF protection via Origin validation on all mutating requests.
-- Secure, HTTP-only cookie-based authentication.
+Admin login: `admin@vitapconnect.local` / `Admin@12345`. Register students through the app; the codes land in Mailpit. There is no fake demo data any more.
 
----
+To remove the old demo students (Aarav, Diya, Kabir, Meera, Rohan and `demo.23bce0001`) from a database, run `npm run remove-demo` in `backend/`. It previews by default; add `-- --apply` to delete. Real students are never touched.
 
-## 🤝 Contributing
-We welcome contributions from fellow VIT-APians! 
-1. Fork the Project.
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the Branch (`git push origin feature/AmazingFeature`).
-5. Open a Pull Request.
+Docker reads `backend/.env.docker`, which contains throwaway local values only. Your real `backend/.env` is never copied into an image.
 
----
+## Run locally without Docker
 
-### 👨‍💻 Developed by Veer Pratap Singh
-Built with ❤️ for a more connected campus.
+Point `backend/.env` at your own Neo4j and MongoDB (see `backend/.env.example`), then:
+
+```bash
+npm run install:all
+npm run dev           # API on :5000, frontend on :5173
+npm run seed:admin
+```
+
+## Deploy (Render + Vercel)
+
+The API runs on Render (`render.yaml`) and the website on Vercel (`frontend/vercel.json`). Step-by-step instructions, including how to keep all existing students and messages, are in `DEPLOY_RENDER_VERCEL.txt`.
