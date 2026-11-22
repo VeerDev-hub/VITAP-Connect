@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Search, SearchX, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { AnimatePresence, motion } from "motion/react";
 import StudentCard from "../components/StudentCard";
 import { EmptyState, PageHeader, Skeleton } from "../components/ui";
 import { DEPARTMENTS, SKILLS } from "../lib/constants";
@@ -9,15 +10,17 @@ import { api } from "../services/api";
 
 const EMPTY = { q: "", skill: "", department: "", year: "" };
 
-function FilterChip({ active, onClick, children }) {
+function FilterChip({ group, active, onClick, children }) {
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
-      className={`rounded border px-2.5 py-1 text-xs font-medium transition-colors ${active ? "border-ink bg-ink text-bg" : "border-line-strong text-ink-2 hover:border-ink-3 hover:text-ink"}`}
+      whileTap={{ scale: 0.92 }}
+      className={`relative rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors duration-200 ${active ? "text-accent-ink" : "bg-sunken text-ink-2 hover:text-ink"}`}
     >
-      {children}
-    </button>
+      {active && <motion.span layoutId={`chip-${group}`} className="absolute inset-0 rounded-full bg-accent" transition={{ type: "spring", stiffness: 400, damping: 30 }} />}
+      <span className="relative">{children}</span>
+    </motion.button>
   );
 }
 
@@ -70,9 +73,9 @@ export default function Discover() {
 
       <div className="space-y-4">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" size={18} />
+          <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-3" size={18} />
           <input
-            className="input !py-3 pl-11 pr-10 text-base"
+            className="input !rounded-full !py-3.5 pl-12 pr-11 text-base"
             placeholder="Search by name or reg. number, e.g. 23BCE"
             value={filters.q}
             onChange={(e) => update({ q: e.target.value })}
@@ -89,19 +92,19 @@ export default function Discover() {
           <p className="eyebrow">Skill</p>
           <div className="flex flex-wrap gap-1.5">
             {SKILLS.slice(0, 10).map((s) => (
-              <FilterChip key={s} active={filters.skill === s} onClick={() => update({ skill: filters.skill === s ? "" : s }, true)}>{s}</FilterChip>
+              <FilterChip group="skill" key={s} active={filters.skill === s} onClick={() => update({ skill: filters.skill === s ? "" : s }, true)}>{s}</FilterChip>
             ))}
           </div>
           <p className="eyebrow">Dept.</p>
           <div className="flex flex-wrap gap-1.5">
             {DEPARTMENTS.map((d) => (
-              <FilterChip key={d} active={filters.department === d} onClick={() => update({ department: filters.department === d ? "" : d }, true)}>{d}</FilterChip>
+              <FilterChip group="dept" key={d} active={filters.department === d} onClick={() => update({ department: filters.department === d ? "" : d }, true)}>{d}</FilterChip>
             ))}
           </div>
           <p className="eyebrow">Year</p>
           <div className="flex flex-wrap gap-1.5">
             {["1", "2", "3", "4"].map((y) => (
-              <FilterChip key={y} active={filters.year === y} onClick={() => update({ year: filters.year === y ? "" : y }, true)}>Year {y}</FilterChip>
+              <FilterChip group="year" key={y} active={filters.year === y} onClick={() => update({ year: filters.year === y ? "" : y }, true)}>Year {y}</FilterChip>
             ))}
           </div>
         </div>
@@ -113,21 +116,30 @@ export default function Discover() {
       </div>
 
       {!users ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-56" />)}</div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-56" />)}</div>
       ) : users.length === 0 ? (
         <EmptyState icon={SearchX} title="No one matches that yet">Try a broader skill or clear a filter.</EmptyState>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {users.map((student) => (
+        <motion.div layout className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <AnimatePresence mode="popLayout">
+            {users.map((student, i) => (
+              <motion.div
+                key={student.id}
+                layout
+                initial={{ opacity: 0, scale: 0.94, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0, transition: { delay: Math.min(i, 8) * 0.04, duration: 0.4, ease: [0.22, 1, 0.36, 1] } }}
+                exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.2 } }}
+              >
             <StudentCard
-              key={student.id}
-              student={student}
-              onAction={request}
-              secondaryActionLabel={student.connectionStatus === "requestSent" ? "Withdraw" : undefined}
-              onSecondaryAction={student.connectionStatus === "requestSent" ? cancelRequest : undefined}
-            />
-          ))}
-        </div>
+                student={student}
+                onAction={request}
+                secondaryActionLabel={student.connectionStatus === "requestSent" ? "Withdraw" : undefined}
+                onSecondaryAction={student.connectionStatus === "requestSent" ? cancelRequest : undefined}
+              />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       )}
     </div>
   );

@@ -57,7 +57,7 @@ export default function App() {
       <Toaster
         position="top-center"
         toastOptions={{
-          className: "!rounded-md !border !border-line !bg-surface !text-ink !text-sm !shadow-pop",
+          className: "!rounded-md !border !border-line !bg-surface !text-ink !text-sm !shadow-float",
           success: { iconTheme: { primary: "rgb(var(--ok))", secondary: "rgb(var(--surface))" } },
           error: { iconTheme: { primary: "rgb(var(--bad))", secondary: "rgb(var(--surface))" } }
         }}

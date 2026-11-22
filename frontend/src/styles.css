@@ -3,48 +3,54 @@
 @tailwind utilities;
 
 /* ── Design tokens ────────────────────────────────────────────────────────────
-   Warm "campus noticeboard" palette: paper, ink, one vermilion accent.
+   "Night campus": deep navy, cobalt for actions, electric lime for highlights.
    Values are RGB channels so Tailwind opacity modifiers work (bg-accent/10). */
 @layer base {
   :root {
-    --bg: 245 243 238;
+    --bg: 243 245 250;
     --surface: 255 255 255;
-    --sunken: 237 234 227;
-    --ink: 23 22 15;
-    --ink-2: 94 90 80;
-    --ink-3: 141 136 124;
-    --line: 226 222 212;
-    --line-strong: 205 200 187;
-    --accent: 217 72 15;
+    --sunken: 233 237 245;
+    --ink: 10 14 30;
+    --ink-2: 72 81 106;
+    --ink-3: 124 133 157;
+    --line: 223 228 239;
+    --line-strong: 200 208 224;
+    --accent: 51 88 255;
     --accent-ink: 255 255 255;
-    --accent-soft: 252 232 221;
-    --ok: 47 125 79;
-    --ok-soft: 222 240 228;
-    --warn: 168 110 18;
-    --warn-soft: 250 238 210;
-    --bad: 190 49 38;
-    --bad-soft: 250 226 222;
+    --accent-soft: 229 235 255;
+    --pop: 196 242 52;
+    --pop-ink: 15 22 4;
+    --ok: 16 150 100;
+    --ok-soft: 220 246 234;
+    --warn: 196 120 10;
+    --warn-soft: 254 242 214;
+    --bad: 220 50 70;
+    --bad-soft: 254 228 232;
+    --glow: 51 88 255;
     color-scheme: light;
   }
 
   .dark {
-    --bg: 18 17 16;
-    --surface: 27 26 23;
-    --sunken: 35 33 30;
-    --ink: 242 239 232;
-    --ink-2: 168 163 150;
-    --ink-3: 117 113 106;
-    --line: 46 44 40;
-    --line-strong: 66 63 57;
-    --accent: 255 122 69;
-    --accent-ink: 23 12 6;
-    --accent-soft: 58 32 21;
-    --ok: 104 196 141;
-    --ok-soft: 24 47 34;
-    --warn: 231 179 84;
-    --warn-soft: 52 40 18;
-    --bad: 244 120 106;
-    --bad-soft: 60 26 23;
+    --bg: 7 10 22;
+    --surface: 14 19 36;
+    --sunken: 21 27 48;
+    --ink: 236 240 252;
+    --ink-2: 160 170 196;
+    --ink-3: 104 115 142;
+    --line: 29 36 60;
+    --line-strong: 46 55 86;
+    --accent: 110 140 255;
+    --accent-ink: 7 10 22;
+    --accent-soft: 24 33 70;
+    --pop: 202 245 70;
+    --pop-ink: 12 18 2;
+    --ok: 72 214 156;
+    --ok-soft: 14 44 34;
+    --warn: 245 182 72;
+    --warn-soft: 50 36 12;
+    --bad: 255 104 120;
+    --bad-soft: 58 20 28;
+    --glow: 110 140 255;
     color-scheme: dark;
   }
 
@@ -54,19 +60,20 @@
 
   body {
     @apply min-h-screen bg-bg font-body text-[15px] leading-normal text-ink antialiased;
+    font-feature-settings: "ss01", "cv11";
   }
 
   h1, h2, h3, h4 {
-    @apply font-display tracking-tight;
-    font-variation-settings: "opsz" 48;
+    @apply font-display font-semibold;
+    letter-spacing: -0.02em;
   }
 
   ::selection {
-    @apply bg-accent/20;
+    @apply bg-pop text-pop-ink;
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-accent/60 ring-offset-2 ring-offset-bg;
+    @apply outline-none ring-2 ring-accent/70 ring-offset-2 ring-offset-bg;
   }
 
   input[type="date"]::-webkit-calendar-picker-indicator {
@@ -77,36 +84,41 @@
 @layer components {
   /* Surfaces */
   .panel {
-    @apply rounded-lg border border-line bg-surface;
+    @apply rounded-3xl border border-line bg-surface;
   }
 
   .panel-pad {
-    @apply rounded-lg border border-line bg-surface p-5 sm:p-6;
+    @apply rounded-3xl border border-line bg-surface p-5 sm:p-7;
   }
 
-  /* Buttons */
+  /* Cards that react to the cursor */
+  .lift {
+    @apply transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1 hover:border-accent/40 hover:shadow-glow;
+  }
+
+  /* Buttons: pills */
   .btn {
-    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50;
+    @apply relative inline-flex select-none items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
   }
 
   .btn-sm {
-    @apply px-3 py-1.5 text-[13px];
+    @apply px-3.5 py-1.5 text-[13px];
   }
 
   .btn-lg {
-    @apply px-5 py-3 text-[15px];
+    @apply px-7 py-3.5 text-[15px];
   }
 
   .btn-primary {
-    @apply bg-ink text-bg hover:bg-ink/85;
+    @apply bg-accent text-accent-ink shadow-[0_8px_24px_-10px_rgb(var(--accent)/0.8)] hover:shadow-[0_12px_30px_-10px_rgb(var(--accent)/0.9)] hover:brightness-110;
   }
 
   .btn-accent {
-    @apply bg-accent text-accent-ink hover:bg-accent/90;
+    @apply bg-pop text-pop-ink shadow-[0_8px_24px_-12px_rgb(var(--pop)/0.9)] hover:brightness-105;
   }
 
   .btn-secondary {
-    @apply border border-line-strong bg-surface text-ink hover:border-ink-3 hover:bg-sunken;
+    @apply border border-line-strong bg-surface text-ink hover:border-accent/50 hover:text-accent;
   }
 
   .btn-ghost {
@@ -118,29 +130,29 @@
   }
 
   .icon-btn {
-    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-2 transition-colors hover:bg-sunken hover:text-ink;
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-2 transition-all duration-200 hover:bg-sunken hover:text-ink active:scale-90;
   }
 
   /* Form controls */
   .input {
-    @apply w-full rounded-md border border-line-strong bg-surface px-3 py-2.5 text-[15px] text-ink outline-none transition placeholder:text-ink-3 focus:border-ink focus:ring-0;
+    @apply w-full rounded-2xl border border-line bg-sunken/60 px-4 py-3 text-[15px] text-ink outline-none transition-all duration-200 placeholder:text-ink-3 hover:border-line-strong focus:border-accent focus:bg-surface focus:shadow-[0_0_0_4px_rgb(var(--accent)/0.15)];
   }
 
   .label {
-    @apply mb-1.5 block text-[13px] font-semibold text-ink-2;
+    @apply mb-2 block text-[13px] font-bold text-ink-2;
   }
 
   /* Small type */
   .eyebrow {
-    @apply font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3;
+    @apply inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.16em] text-accent;
   }
 
   .tag {
-    @apply inline-flex items-center rounded border border-line bg-sunken px-2 py-0.5 text-xs font-medium text-ink-2;
+    @apply inline-flex items-center rounded-full bg-sunken px-3 py-1 text-xs font-semibold text-ink-2;
   }
 
   .kbd {
-    @apply rounded border border-line bg-sunken px-1.5 py-0.5 font-mono text-[11px] text-ink-2;
+    @apply rounded-md border border-line bg-sunken px-1.5 py-0.5 font-mono text-[11px] text-ink-2;
   }
 
   .divider {
@@ -148,7 +160,17 @@
   }
 
   .link {
-    @apply font-semibold text-ink underline decoration-line-strong underline-offset-4 transition hover:decoration-accent;
+    @apply font-bold text-accent underline decoration-accent/30 decoration-2 underline-offset-4 transition hover:decoration-accent;
+  }
+
+  /* Lime marker highlight for a word in a heading */
+  .marker {
+    @apply relative whitespace-nowrap;
+    background: linear-gradient(transparent 58%, rgb(var(--pop) / 0.9) 58%, rgb(var(--pop) / 0.9) 92%, transparent 92%);
+  }
+  .dark .marker {
+    background: none;
+    @apply text-pop;
   }
 }
 
@@ -162,18 +184,41 @@
     text-wrap: balance;
   }
 
-  /* Graph-paper texture for hero/auth panels */
-  .grid-paper {
-    background-image:
-      linear-gradient(rgb(var(--line) / 0.7) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(var(--line) / 0.7) 1px, transparent 1px);
-    background-size: 28px 28px;
+  /* Dot grid used behind hero sections */
+  .dot-grid {
+    background-image: radial-gradient(rgb(var(--ink) / 0.13) 1px, transparent 1.4px);
+    background-size: 22px 22px;
   }
+
+  /* Kept for older markup: same as dot-grid */
+  .grid-paper {
+    background-image: radial-gradient(rgb(var(--ink) / 0.13) 1px, transparent 1.4px);
+    background-size: 22px 22px;
+  }
+
+  .mask-fade-b {
+    mask-image: linear-gradient(to bottom, black 55%, transparent);
+  }
+
+  .mask-fade-x {
+    mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(100deg, rgb(var(--ink)) 20%, rgb(var(--accent)) 70%);
+  }
+}
+
+/* Theme switch: crossfade colours instead of snapping */
+.theme-anim, .theme-anim * {
+  transition: background-color 400ms ease, border-color 400ms ease, color 300ms ease !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

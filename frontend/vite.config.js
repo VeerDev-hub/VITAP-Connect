@@ -9,6 +9,16 @@ export default defineConfig({
     watch: process.env.CHOKIDAR_USEPOLLING === "true" ? { usePolling: true, interval: 300 } : undefined
   },
   build: {
-    outDir: "dist"
+    outDir: "dist",
+    rollupOptions: {
+      output: {
+        // Long-lived vendor chunks: they only change when the libraries do.
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          motion: ["motion/react"],
+          realtime: ["socket.io-client", "axios"]
+        }
+      }
+    }
   }
 });

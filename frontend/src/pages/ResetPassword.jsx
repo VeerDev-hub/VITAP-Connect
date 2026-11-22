@@ -36,13 +36,13 @@ export default function ResetPassword() {
     <AuthLayout aside={ASIDE}>
       {!resetToken ? (
         <>
-          <h1 className="text-3xl font-semibold">Link expired</h1>
+          <h1 className="text-[1.75rem] leading-tight">Link expired</h1>
           <p className="mt-2 text-ink-2">Your reset session is missing or has expired. Start again to get a new code.</p>
           <Link to="/forgot-password" className="btn btn-primary btn-lg mt-8 w-full">Start over</Link>
         </>
       ) : (
         <>
-          <h1 className="text-3xl font-semibold">Set a new password</h1>
+          <h1 className="text-[1.75rem] leading-tight">Set a new password</h1>
           <form className="mt-8 space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
             <Field label="New password" htmlFor="rp-password" error={errors.password?.message}>
               <PasswordInput

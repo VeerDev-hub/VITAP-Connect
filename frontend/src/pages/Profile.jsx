@@ -95,7 +95,7 @@ export default function Profile() {
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
-                className="absolute -bottom-2 -right-2 inline-flex h-9 w-9 items-center justify-center rounded-md border border-line bg-surface text-ink shadow-pop hover:bg-sunken"
+                className="absolute -bottom-2 -right-2 inline-flex h-9 w-9 items-center justify-center rounded-md border border-line bg-surface text-ink shadow-float hover:bg-sunken"
                 aria-label="Change photo"
               >
                 <Camera size={16} />

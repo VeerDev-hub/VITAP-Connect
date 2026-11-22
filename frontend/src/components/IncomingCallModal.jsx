@@ -13,7 +13,7 @@ function callUrl({ roomId, callType, title, peerId, peerName }) {
 function CallCard({ eyebrow, name, detail, callType, children, pulse }) {
   const Icon = callType === "video" ? Video : Phone;
   return (
-    <div className="fixed inset-x-3 bottom-20 z-[60] mx-auto max-w-sm animate-fade-up rounded-xl border border-line bg-surface p-4 shadow-pop lg:bottom-6 lg:right-6 lg:left-auto lg:mx-0">
+    <div className="fixed inset-x-3 bottom-20 z-[60] mx-auto max-w-sm animate-fade-up rounded-xl border border-line bg-surface p-4 shadow-float lg:bottom-6 lg:right-6 lg:left-auto lg:mx-0">
       <div className="flex items-center gap-3">
         <span className="relative">
           <Avatar name={name} size="lg" />

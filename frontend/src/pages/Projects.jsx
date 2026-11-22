@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import toast from "react-hot-toast";
+import { motion } from "motion/react";
+import { Stagger } from "../components/motion";
 import { CalendarDays, Check, ChevronDown, FolderKanban, Mic, Plus, Send, Trash2, Users, Video, X } from "lucide-react";
 import { Avatar, Badge, EmptyState, Field, PageHeader, Skeleton, TagInput } from "../components/ui";
 import { PROJECT_TYPES, SKILLS } from "../lib/constants";
@@ -147,7 +149,7 @@ function ProjectCard({ project, onChange }) {
   };
 
   return (
-    <article className="panel overflow-hidden">
+    <article className="panel lift overflow-hidden">
       <div className="p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={project.type === "Hackathon" ? "accent" : "neutral"}>{project.type || "Project"}</Badge>
@@ -259,15 +261,13 @@ export default function Projects() {
 
       {creating && <NewProjectForm onCreated={() => { setCreating(false); load(); }} onCancel={() => setCreating(false)} />}
 
-      <div className="flex gap-1 border-b border-line">
+      <div className="inline-flex gap-1 rounded-full bg-sunken p-1">
         {TABS.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${tab === key ? "border-accent text-ink" : "border-transparent text-ink-3 hover:text-ink"}`}
-          >
-            {label} {counts[key] !== undefined && <span className="ml-1 font-mono text-[11px] text-ink-3">{counts[key]}</span>}
+          <button key={key} type="button" onClick={() => setTab(key)} className="relative rounded-full px-4 py-2 text-sm font-bold">
+            {tab === key && <motion.span layoutId="project-tab" className="absolute inset-0 rounded-full bg-surface shadow-[0_4px_14px_-6px_rgb(var(--ink)/0.35)]" transition={{ type: "spring", stiffness: 420, damping: 34 }} />}
+            <span className={`relative transition-colors ${tab === key ? "text-ink" : "text-ink-3 hover:text-ink"}`}>
+              {label} {counts[key] !== undefined && <span className={`ml-1 rounded-full px-1.5 text-[11px] ${tab === key ? "bg-accent text-accent-ink" : "bg-line text-ink-2"}`}>{counts[key]}</span>}
+            </span>
           </button>
         ))}
       </div>
@@ -283,7 +283,7 @@ export default function Projects() {
           Projects you create or join will show up here.
         </EmptyState>
       ) : (
-        <div className="space-y-3">{visible.map((p) => <ProjectCard key={p.id} project={p} onChange={load} />)}</div>
+        <Stagger className="space-y-4" gap={0.08}>{visible.map((p) => <ProjectCard key={p.id} project={p} onChange={load} />)}</Stagger>
       )}
     </div>
   );
